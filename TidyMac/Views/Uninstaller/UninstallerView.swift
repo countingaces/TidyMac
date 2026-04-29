@@ -321,44 +321,61 @@ private struct OrphansSection: View {
     var body: some View {
         let theme = viewModel.moduleInfo.colorTheme
         VStack(alignment: .leading, spacing: 6) {
-            Button {
-                viewModel.isOrphansSectionExpanded.toggle()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: viewModel.isOrphansSectionExpanded
-                          ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 12)
-
-                    Image(systemName: "questionmark.folder.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(theme.gradient)
-                        .frame(width: 24)
-
-                    if viewModel.isDetectingOrphans {
-                        Text("Looking for orphaned files…")
-                            .font(.system(size: 12, weight: .semibold))
-                        Spacer()
-                        ProgressView().controlSize(.small)
-                    } else {
-                        let summary = viewModel.orphansSummary
-                        Text("\(summary.count) orphaned file\(summary.count == 1 ? "" : "s") from \(viewModel.orphans.count) removed app\(viewModel.orphans.count == 1 ? "" : "s")")
-                            .font(.system(size: 12, weight: .semibold))
-                        Spacer()
-                        Text(humanReadableSize(summary.totalSize))
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(theme.primary)
+            HStack(spacing: 8) {
+                if !viewModel.isDetectingOrphans && !viewModel.orphans.isEmpty {
+                    CategoryCheckbox(
+                        state: viewModel.orphansSelectionState,
+                        theme: theme
+                    ) {
+                        viewModel.toggleAllOrphans()
                     }
+                    .help("Select all orphaned files")
+                } else {
+                    // Spacer-equivalent so the row stays aligned during the
+                    // initial detection pass.
+                    Color.clear.frame(width: 20, height: 20)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(theme.primary.opacity(0.06))
-                )
+
+                Button {
+                    viewModel.isOrphansSectionExpanded.toggle()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: viewModel.isOrphansSectionExpanded
+                              ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 12)
+
+                        Image(systemName: "questionmark.folder.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(theme.gradient)
+                            .frame(width: 24)
+
+                        if viewModel.isDetectingOrphans {
+                            Text("Looking for orphaned files…")
+                                .font(.system(size: 12, weight: .semibold))
+                            Spacer()
+                            ProgressView().controlSize(.small)
+                        } else {
+                            let summary = viewModel.orphansSummary
+                            Text("\(summary.count) orphaned file\(summary.count == 1 ? "" : "s") from \(viewModel.orphans.count) removed app\(viewModel.orphans.count == 1 ? "" : "s")")
+                                .font(.system(size: 12, weight: .semibold))
+                            Spacer()
+                            Text(humanReadableSize(summary.totalSize))
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                .foregroundStyle(theme.primary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.primary.opacity(0.06))
+            )
 
             if viewModel.isOrphansSectionExpanded {
                 VStack(spacing: 1) {

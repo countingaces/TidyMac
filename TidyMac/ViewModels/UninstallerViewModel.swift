@@ -157,6 +157,22 @@ final class UninstallerViewModel: ObservableObject {
         orphans.filter { selectedOrphanIds.contains($0.id) }
     }
 
+    var orphansSelectionState: SelectionState {
+        guard !orphans.isEmpty else { return .none }
+        let selected = orphans.filter { selectedOrphanIds.contains($0.id) }.count
+        if selected == 0 { return .none }
+        if selected == orphans.count { return .all }
+        return .partial
+    }
+
+    func toggleAllOrphans() {
+        if orphansSelectionState == .all {
+            selectedOrphanIds.removeAll()
+        } else {
+            selectedOrphanIds = Set(orphans.map { $0.id })
+        }
+    }
+
     var orphansSummary: (count: Int, totalSize: Int64) {
         let count = orphans.reduce(0) { $0 + $1.paths.count }
         let totalSize = orphans.reduce(Int64(0)) { $0 + $1.totalSize }
