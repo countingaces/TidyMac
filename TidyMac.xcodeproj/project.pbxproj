@@ -32,6 +32,10 @@
 		100000000000000000000093 /* SystemJunkScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000064 /* SystemJunkScanner.swift */; };
 		100000000000000000000094 /* SystemJunkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000065 /* SystemJunkViewModel.swift */; };
 		100000000000000000000095 /* SystemJunkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000066 /* SystemJunkView.swift */; };
+		100000000000000000000096 /* CleaningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000068 /* CleaningService.swift */; };
+		100000000000000000000097 /* CleaningProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000080 /* CleaningProgressView.swift */; };
+		100000000000000000000098 /* CleaningCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000081 /* CleaningCompleteView.swift */; };
+		100000000000000000000099 /* QuitAppsDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000082 /* QuitAppsDialog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -62,6 +66,10 @@
 		100000000000000000000064 /* SystemJunkScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkScanner.swift; sourceTree = "<group>"; };
 		100000000000000000000065 /* SystemJunkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkViewModel.swift; sourceTree = "<group>"; };
 		100000000000000000000066 /* SystemJunkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkView.swift; sourceTree = "<group>"; };
+		100000000000000000000068 /* CleaningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningService.swift; sourceTree = "<group>"; };
+		100000000000000000000080 /* CleaningProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningProgressView.swift; sourceTree = "<group>"; };
+		100000000000000000000081 /* CleaningCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningCompleteView.swift; sourceTree = "<group>"; };
+		100000000000000000000082 /* QuitAppsDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitAppsDialog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -128,8 +136,19 @@
 				100000000000000000000026 /* PlaceholderView.swift */,
 				100000000000000000000053 /* SpaceLens */,
 				100000000000000000000067 /* SystemJunk */,
+				100000000000000000000069 /* Shared */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		100000000000000000000069 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000080 /* CleaningProgressView.swift */,
+				100000000000000000000081 /* CleaningCompleteView.swift */,
+				100000000000000000000082 /* QuitAppsDialog.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		100000000000000000000067 /* SystemJunk */ = {
@@ -175,6 +194,7 @@
 				100000000000000000000058 /* FullDiskAccessChecker.swift */,
 				100000000000000000000059 /* BulkDirectoryReader.swift */,
 				100000000000000000000064 /* SystemJunkScanner.swift */,
+				100000000000000000000068 /* CleaningService.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -281,6 +301,10 @@
 				100000000000000000000093 /* SystemJunkScanner.swift in Sources */,
 				100000000000000000000094 /* SystemJunkViewModel.swift in Sources */,
 				100000000000000000000095 /* SystemJunkView.swift in Sources */,
+				100000000000000000000096 /* CleaningService.swift in Sources */,
+				100000000000000000000097 /* CleaningProgressView.swift in Sources */,
+				100000000000000000000098 /* CleaningCompleteView.swift in Sources */,
+				100000000000000000000099 /* QuitAppsDialog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

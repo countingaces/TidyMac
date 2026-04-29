@@ -34,11 +34,22 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
     @Published var selectedItemIds: Set<UUID> = []
     @Published var selectedCategoryId: String?
     @Published var sortMode: SortMode = .size
-    @Published private(set) var isCleaning: Bool = false
     @Published var alertMessage: String?
 
+    @Published var cleaningPhase: CleaningPhase = .idle
+    @Published var runningAppsToQuit: [NSRunningApplication] = []
+
+    enum CleaningPhase {
+        case idle
+        case awaitingQuitDecision
+        case inProgress(CleaningService.Progress)
+        case finished(CleaningService.CleaningResult)
+    }
+
     private var scanTask: Task<Void, Never>?
+    private var cleanTask: Task<Void, Never>?
     private let scanner = SystemJunkScanner()
+    private let cleaningService = CleaningService()
 
     // MARK: - Derived state
 
@@ -128,32 +139,16 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
 
     func clean(items: [JunkItem]) async throws {
         guard !items.isEmpty else { return }
-
-        isCleaning = true
-        defer { isCleaning = false }
-
-        let urls = items.map { $0.path }
-        let trashed = await Self.recycle(urls: urls)
-        let removedURLs = Set(trashed.keys)
-
-        let cleanedItemIds: Set<UUID> = Set(
-            items.filter { removedURLs.contains($0.path) }.map { $0.id }
-        )
-
-        for catIdx in results.indices {
-            results[catIdx].items.removeAll { cleanedItemIds.contains($0.id) }
+        let result = await cleaningService.clean(items: items, onProgress: { _ in })
+        prune(items: items, against: result.log)
+        if result.itemsCleaned == 0 && !result.failures.isEmpty {
+            throw CleaningService.CleaningError.recycleFailed
         }
-        results.removeAll { $0.items.isEmpty }
-        selectedItemIds.subtract(cleanedItemIds)
+    }
 
-        if let id = selectedCategoryId, !results.contains(where: { $0.id == id }) {
-            selectedCategoryId = sortedCategories.first?.id
-        }
-
-        if cleanedItemIds.count < items.count {
-            let failed = items.count - cleanedItemIds.count
-            alertMessage = "Removed \(cleanedItemIds.count) item\(cleanedItemIds.count == 1 ? "" : "s"). \(failed) couldn't be moved to Trash."
-        }
+    var isCleaning: Bool {
+        if case .inProgress = cleaningPhase { return true }
+        return false
     }
 
     // MARK: - View helpers
@@ -165,13 +160,106 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
         }
     }
 
-    func cleanSelected() async {
+    // MARK: - Rich cleaning flow (UI)
+
+    /// Entry point from the UI Clean button.
+    func requestClean() {
+        let conflicting = CleaningService.conflictingRunningApps(for: selectedItems)
+        runningAppsToQuit = conflicting
+        if conflicting.isEmpty {
+            beginCleaning()
+        } else {
+            cleaningPhase = .awaitingQuitDecision
+        }
+    }
+
+    func quitApp(_ app: NSRunningApplication) {
+        CleaningService.quit(app)
+    }
+
+    func quitAllAndContinue() {
+        CleaningService.quitAll(runningAppsToQuit)
+        // Brief delay so apps actually exit before we try to trash their files.
+        cleanTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run { [weak self] in
+                self?.beginCleaning()
+            }
+        }
+    }
+
+    func ignoreAndContinue() {
+        beginCleaning()
+    }
+
+    func cancelCleaningPreflight() {
+        runningAppsToQuit = []
+        cleaningPhase = .idle
+    }
+
+    func cancelCleaning() {
+        cleanTask?.cancel()
+        cleanTask = nil
+    }
+
+    func dismissCompletion() {
+        cleaningPhase = .idle
+        runningAppsToQuit = []
+        scanState = .idle
+        results = []
+        selectedItemIds = []
+        selectedCategoryId = nil
+    }
+
+    private func beginCleaning() {
         let items = selectedItems
-        guard !items.isEmpty else { return }
-        do {
-            try await clean(items: items)
-        } catch {
-            alertMessage = error.localizedDescription
+        guard !items.isEmpty else {
+            cleaningPhase = .idle
+            runningAppsToQuit = []
+            return
+        }
+
+        cleaningPhase = .inProgress(CleaningService.Progress(
+            currentItemName: "",
+            itemsCompleted: 0,
+            totalItems: items.count,
+            sizeFreedSoFar: 0
+        ))
+
+        cleanTask = Task { [weak self] in
+            guard let self else { return }
+            let result = await self.cleaningService.clean(items: items) { progress in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if case .inProgress = self.cleaningPhase {
+                        self.cleaningPhase = .inProgress(progress)
+                    }
+                }
+            }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.prune(items: items, against: result.log)
+                self.runningAppsToQuit = []
+                self.cleaningPhase = .finished(result)
+            }
+        }
+    }
+
+    private func prune(items: [JunkItem], against log: [CleaningService.CleaningLogEntry]) {
+        let cleanedURLs = Set(log.filter { $0.success }.map { $0.path })
+        let cleanedIds: Set<UUID> = Set(
+            items.filter { cleanedURLs.contains($0.path) }.map { $0.id }
+        )
+        guard !cleanedIds.isEmpty else { return }
+
+        for catIdx in results.indices {
+            results[catIdx].items.removeAll { cleanedIds.contains($0.id) }
+        }
+        results.removeAll { $0.items.isEmpty }
+        selectedItemIds.subtract(cleanedIds)
+
+        if let id = selectedCategoryId, !results.contains(where: { $0.id == id }) {
+            selectedCategoryId = sortedCategories.first?.id
         }
     }
 
@@ -218,13 +306,4 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
         scanState = .idle
     }
 
-    // MARK: - Internal
-
-    private static func recycle(urls: [URL]) async -> [URL: URL] {
-        await withCheckedContinuation { continuation in
-            NSWorkspace.shared.recycle(urls) { newURLs, _ in
-                continuation.resume(returning: newURLs)
-            }
-        }
-    }
 }

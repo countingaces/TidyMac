@@ -7,15 +7,21 @@ struct SystemJunkView: View {
 
     var body: some View {
         Group {
-            switch viewModel.scanState {
-            case .idle:
-                LandingView(viewModel: viewModel)
-            case .scanning(let progress):
-                ScanningView(viewModel: viewModel, progress: progress)
-            case .complete:
-                ResultsView(viewModel: viewModel, showCleanConfirmation: $showCleanConfirmation)
-            case .error(let message):
-                ErrorView(viewModel: viewModel, message: message)
+            switch viewModel.cleaningPhase {
+            case .inProgress(let progress):
+                CleaningProgressView(
+                    progress: progress,
+                    theme: viewModel.moduleInfo.colorTheme,
+                    onStop: { viewModel.cancelCleaning() }
+                )
+            case .finished(let result):
+                CleaningCompleteView(
+                    result: result,
+                    theme: viewModel.moduleInfo.colorTheme,
+                    onStartOver: { viewModel.dismissCompletion() }
+                )
+            case .idle, .awaitingQuitDecision:
+                normalContent
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -31,6 +37,44 @@ struct SystemJunkView: View {
         } message: { msg in
             Text(msg)
         }
+        .sheet(isPresented: quitSheetBinding) {
+            QuitAppsDialog(
+                apps: viewModel.runningAppsToQuit,
+                theme: viewModel.moduleInfo.colorTheme,
+                onQuit: { app in viewModel.quitApp(app) },
+                onQuitAll: { viewModel.quitAllAndContinue() },
+                onIgnore: { viewModel.ignoreAndContinue() },
+                onCancel: { viewModel.cancelCleaningPreflight() }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var normalContent: some View {
+        switch viewModel.scanState {
+        case .idle:
+            LandingView(viewModel: viewModel)
+        case .scanning(let progress):
+            ScanningView(viewModel: viewModel, progress: progress)
+        case .complete:
+            ResultsView(viewModel: viewModel, showCleanConfirmation: $showCleanConfirmation)
+        case .error(let message):
+            ErrorView(viewModel: viewModel, message: message)
+        }
+    }
+
+    private var quitSheetBinding: Binding<Bool> {
+        Binding(
+            get: {
+                if case .awaitingQuitDecision = viewModel.cleaningPhase { return true }
+                return false
+            },
+            set: { newValue in
+                if !newValue {
+                    viewModel.cancelCleaningPreflight()
+                }
+            }
+        )
     }
 }
 
@@ -249,7 +293,7 @@ private struct ResultsView: View {
             titleVisibility: .visible
         ) {
             Button("Move \(humanReadableSize(viewModel.selectedSize)) to Trash", role: .destructive) {
-                Task { await viewModel.cleanSelected() }
+                viewModel.requestClean()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
