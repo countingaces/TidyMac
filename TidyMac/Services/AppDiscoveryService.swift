@@ -103,7 +103,7 @@ struct AppDiscoveryService: Sendable {
         let category = forcedCategory ?? Self.classify(bundleId: bundleId, bundleURL: bundleURL)
         let icon = NSWorkspace.shared.icon(forFile: bundleURL.path)
         let size = bundleSize(at: bundleURL)
-        let lastUsed = lastUsedDate(bundleId: bundleId, bundleURL: bundleURL)
+        let lastUsed = lastUsedDate(bundleId: bundleId, appName: displayName, bundleURL: bundleURL)
         let sandboxed = Self.isSandboxed(bundleId: bundleId)
 
         return AppInfo(
@@ -164,27 +164,59 @@ struct AppDiscoveryService: Sendable {
 
     /// Modern macOS no longer reliably indexes `kMDItemLastUsedDate` for
     /// most user-installed apps (Spotlight returns `(null)`). Instead we
-    /// derive last-used from the most recent mtime across the per-bundle
-    /// data locations apps almost always touch on launch/quit:
+    /// take the most recent mtime across the per-app data locations apps
+    /// touch on launch/quit. Two naming conventions to cover:
     ///
-    ///   ~/Library/Preferences/<bundleId>.plist
-    ///   ~/Library/Saved Application State/<bundleId>.savedState
-    ///   ~/Library/Caches/<bundleId>
-    ///   ~/Library/Containers/<bundleId>
-    ///   ~/Library/Containers/<bundleId>/Data/Library/Preferences/<bundleId>.plist
+    ///   - Bundle-id namespaced (Apple/native apps):
+    ///       Preferences/<bundleId>.plist
+    ///       Saved Application State/<bundleId>.savedState
+    ///       Caches/<bundleId>
+    ///       Containers/<bundleId>
+    ///       HTTPStorages/<bundleId>
+    ///       Logs/<bundleId>
+    ///   - App-name namespaced (Electron / cross-platform apps —
+    ///     Discord, Slack, VS Code, Spotify, etc., which all write the
+    ///     bulk of their state under their friendly name, NOT the
+    ///     bundle id):
+    ///       Application Support/<AppName>
+    ///       Application Support/<appname>            (lowercased)
+    ///       Caches/<AppName>
+    ///       Logs/<AppName>
     ///
-    /// Falls back to the bundle's own mtime (≈ install/update date) if no
-    /// data files exist for the app yet.
-    private func lastUsedDate(bundleId: String, bundleURL: URL) -> Date? {
+    /// Discord's main data is at ~/Library/Application Support/discord/,
+    /// updated every few seconds while running, while its bundle-id
+    /// preferences plist hasn't been touched in a year. Without checking
+    /// app-name paths we'd say "Used 11 months ago" while Discord's
+    /// actively running.
+    ///
+    /// Falls back to the bundle's own mtime (≈ install/update date) if
+    /// no data files exist for the app yet.
+    private func lastUsedDate(bundleId: String, appName: String, bundleURL: URL) -> Date? {
         let home = NSHomeDirectory()
-        let candidates = [
+        let lowerName = appName.lowercased()
+
+        var candidates = [
+            // Bundle-id namespaced
             "\(home)/Library/Preferences/\(bundleId).plist",
             "\(home)/Library/Saved Application State/\(bundleId).savedState",
             "\(home)/Library/Caches/\(bundleId)",
             "\(home)/Library/Containers/\(bundleId)",
             "\(home)/Library/Containers/\(bundleId)/Data/Library/Preferences/\(bundleId).plist",
-            "\(home)/Library/HTTPStorages/\(bundleId)"
+            "\(home)/Library/HTTPStorages/\(bundleId)",
+            "\(home)/Library/Logs/\(bundleId)",
+            "\(home)/Library/Application Support/\(bundleId)"
         ]
+        // App-name namespaced (Electron etc.)
+        if !appName.isEmpty {
+            candidates.append("\(home)/Library/Application Support/\(appName)")
+            candidates.append("\(home)/Library/Caches/\(appName)")
+            candidates.append("\(home)/Library/Logs/\(appName)")
+        }
+        if !lowerName.isEmpty && lowerName != appName {
+            candidates.append("\(home)/Library/Application Support/\(lowerName)")
+            candidates.append("\(home)/Library/Caches/\(lowerName)")
+            candidates.append("\(home)/Library/Logs/\(lowerName)")
+        }
 
         var latest: Date?
         for path in candidates {
