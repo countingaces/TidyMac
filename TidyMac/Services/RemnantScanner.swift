@@ -227,11 +227,13 @@ struct RemnantScanner: Sendable {
         let lower = name.lowercased()
         let suffixes = [
             ".fileprovider",
+            ".fpext",                    // alt file-provider suffix (Google Drive)
             ".transferextension",
             ".safariextension",
             ".sendtoextension",
             ".contextmenuextension",
             ".findersync",
+            ".finderhelper",
             ".notificationserviceextension",
             ".notification-content-extension",
             ".quicklookextension",
@@ -239,7 +241,8 @@ struct RemnantScanner: Sendable {
             ".photoextension",
             ".auth-service-extension",
             ".browser-helper",
-            ".credentialprovider"
+            ".credentialprovider",
+            ".systemextension"
         ]
         return suffixes.contains(where: { lower.hasSuffix($0) })
     }
