@@ -148,6 +148,15 @@ final class CleaningService {
     }
 
     private func trashItem(at url: URL) async throws {
+        // Items already in the Trash get permanently removed — there's no
+        // "deeper Trash" to send them to, and NSWorkspace.recycle would just
+        // rename them in place without freeing space. Everything else is
+        // moved to the Trash so the user can recover it.
+        if Self.isInTrash(url) {
+            try FileManager.default.removeItem(at: url)
+            return
+        }
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             NSWorkspace.shared.recycle([url]) { newURLs, error in
                 if let error {
@@ -161,6 +170,14 @@ final class CleaningService {
                 continuation.resume(returning: ())
             }
         }
+    }
+
+    private static func isInTrash(_ url: URL) -> Bool {
+        let path = url.path
+        let homeTrash = NSHomeDirectory() + "/.Trash"
+        if path == homeTrash || path.hasPrefix(homeTrash + "/") { return true }
+        if path.hasPrefix("/Volumes/") && path.range(of: "/.Trashes/") != nil { return true }
+        return false
     }
 
     // MARK: - Log persistence

@@ -24,11 +24,14 @@ struct SystemJunkScanner: Sendable {
             ("Scanning user logs…",          { try await scanUserLogs() }),
             ("Reviewing downloads…",         { try await scanDownloads() }),
             ("Scanning Xcode artifacts…",    { try await scanXcodeJunk() }),
+            ("Scanning module caches…",      { try await scanModuleCaches() }),
             ("Scanning old updates…",        { try await scanOldUpdates() }),
             ("Looking for broken preferences…", { try await scanBrokenPreferences(context: context) }),
             ("Scanning language files…",     { try await scanLanguageFiles(context: context) }),
             ("Scanning universal binaries…", { try await scanUniversalBinaries() }),
-            ("Scanning iOS backups…",        { try await scanIOSBackups() })
+            ("Scanning mail attachments…",   { try await scanMailAttachments() }),
+            ("Scanning iOS backups…",        { try await scanIOSBackups() }),
+            ("Reviewing Trash…",             { try await scanTrashBins() })
         ]
 
         for stage in stages {
@@ -690,6 +693,155 @@ struct SystemJunkScanner: Sendable {
             title: "Old iOS Backups",
             description: "iPhone/iPad backups older than 6 months.",
             icon: "iphone.gen2",
+            items: items.sorted { $0.size > $1.size }
+        )
+    }
+
+    // MARK: - Mail Attachments
+
+    private func scanMailAttachments() async throws -> ScanCategory<JunkItem> {
+        try Task.checkCancellation()
+        let mailRoot = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Mail", isDirectory: true)
+
+        var items: [JunkItem] = []
+        try findAttachmentFolders(at: mailRoot, into: &items)
+
+        return makeCategory(
+            id: "mail-attachments",
+            title: "Mail Attachments",
+            description: "Locally cached email attachments. Mail can re-download them from the server.",
+            icon: "envelope.fill",
+            items: items.sorted { $0.size > $1.size },
+            isSelected: false
+        )
+    }
+
+    private func findAttachmentFolders(at url: URL, into items: inout [JunkItem]) throws {
+        try Task.checkCancellation()
+        let entries: [BulkDirectoryEntry]
+        do {
+            entries = try BulkDirectoryReader.enumerate(at: url.path)
+        } catch {
+            return
+        }
+
+        for entry in entries {
+            try Task.checkCancellation()
+            if entry.isSymbolicLink { continue }
+            if !entry.isDirectory { continue }
+            let childURL = url.appendingPathComponent(entry.name, isDirectory: true)
+
+            if entry.name == "Attachments" {
+                let size = bulkDirectorySize(at: childURL)
+                if size > 0 {
+                    let homePrefix = NSHomeDirectory() + "/Library/Mail/"
+                    let displayPath = childURL.path.hasPrefix(homePrefix)
+                        ? String(childURL.path.dropFirst(homePrefix.count))
+                        : childURL.path
+                    items.append(JunkItem(
+                        name: displayPath,
+                        path: childURL,
+                        size: size,
+                        safetyLevel: .cautious,
+                        categoryId: "mail-attachments",
+                        lastModified: lastModified(at: childURL)
+                    ))
+                }
+            } else {
+                try findAttachmentFolders(at: childURL, into: &items)
+            }
+        }
+    }
+
+    // MARK: - Trash Bins
+
+    private func scanTrashBins() async throws -> ScanCategory<JunkItem> {
+        try Task.checkCancellation()
+        let trashRoots = [
+            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".Trash", isDirectory: true)
+        ]
+
+        var items: [JunkItem] = []
+        for trashURL in trashRoots {
+            try Task.checkCancellation()
+            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: trashURL.path) else { continue }
+            for entry in entries {
+                try Task.checkCancellation()
+                if entry == ".DS_Store" { continue }
+                let entryURL = trashURL.appendingPathComponent(entry)
+                let values = try? entryURL.resourceValues(forKeys: [
+                    .isDirectoryKey, .isSymbolicLinkKey,
+                    .totalFileAllocatedSizeKey, .fileSizeKey
+                ])
+                if values?.isSymbolicLink == true { continue }
+
+                let size: Int64
+                if values?.isDirectory == true {
+                    size = bulkDirectorySize(at: entryURL)
+                } else {
+                    size = Int64(values?.totalFileAllocatedSize ?? values?.fileSize ?? 0)
+                }
+                if size <= 0 { continue }
+
+                items.append(JunkItem(
+                    name: entry,
+                    path: entryURL,
+                    size: size,
+                    safetyLevel: .cautious,
+                    categoryId: "trash",
+                    lastModified: lastModified(at: entryURL)
+                ))
+            }
+        }
+
+        return makeCategory(
+            id: "trash",
+            title: "Trash Bins",
+            description: "Items in the Trash. Cleaning permanently deletes them — this can't be undone.",
+            icon: "trash.fill",
+            items: items.sorted { $0.size > $1.size },
+            isSelected: false
+        )
+    }
+
+    // MARK: - Module Caches
+
+    private func scanModuleCaches() async throws -> ScanCategory<JunkItem> {
+        try Task.checkCancellation()
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        let groups: [(label: String, url: URL)] = [
+            ("Clang Module Cache", home.appendingPathComponent("Library/Caches/clang", isDirectory: true)),
+            ("IB Support",         home.appendingPathComponent("Library/Developer/Xcode/UserData/IB Support", isDirectory: true)),
+            ("DT Toolchains",      home.appendingPathComponent("Library/Caches/com.apple.dt.Xcode", isDirectory: true))
+        ]
+
+        var items: [JunkItem] = []
+        for group in groups {
+            try Task.checkCancellation()
+            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: group.url.path) else { continue }
+            for entry in entries {
+                try Task.checkCancellation()
+                if entry.hasPrefix(".") { continue }
+                let entryURL = group.url.appendingPathComponent(entry, isDirectory: true)
+                let size = bulkDirectorySize(at: entryURL)
+                if size <= 0 { continue }
+                items.append(JunkItem(
+                    name: "\(group.label) — \(entry)",
+                    path: entryURL,
+                    size: size,
+                    safetyLevel: .safe,
+                    categoryId: "module-caches",
+                    lastModified: lastModified(at: entryURL)
+                ))
+            }
+        }
+
+        return makeCategory(
+            id: "module-caches",
+            title: "Module Caches",
+            description: "Compiler and Interface Builder caches that get regenerated automatically.",
+            icon: "cube.box.fill",
             items: items.sorted { $0.size > $1.size }
         )
     }
