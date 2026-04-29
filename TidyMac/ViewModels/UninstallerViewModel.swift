@@ -80,6 +80,11 @@ final class UninstallerViewModel: ObservableObject {
     @Published private(set) var remnantsByAppId: [String: [AppRemnant]] = [:]
     @Published private(set) var scanningAppIds: Set<String> = []
 
+    @Published private(set) var orphans: [OrphanDetector.Orphan] = []
+    @Published private(set) var isDetectingOrphans: Bool = false
+    @Published var selectedOrphanIds: Set<UUID> = []
+    @Published var isOrphansSectionExpanded: Bool = true
+
     /// Per-app, the set of remnant ids currently checked in the detail sheet.
     /// Auto-populated with high-confidence matches when remnants first scan.
     @Published var selectedRemnantIds: [String: Set<UUID>] = [:]
@@ -90,6 +95,7 @@ final class UninstallerViewModel: ObservableObject {
 
     private let discoveryService = AppDiscoveryService()
     private let remnantScanner = RemnantScanner()
+    private let orphanDetector = OrphanDetector()
     private let cleaningService = CleaningService()
     private var cleanTask: Task<Void, Never>?
 
@@ -100,6 +106,47 @@ final class UninstallerViewModel: ObservableObject {
         let found = await discoveryService.discoverApps()
         apps = found
         loadState = .loaded
+
+        // Kick off orphan detection in the background once we know the
+        // installed bundle id set.
+        let installedIds = Set(found.map { $0.id })
+        Task { [weak self] in
+            await self?.detectOrphans(installedIds: installedIds)
+        }
+    }
+
+    private func detectOrphans(installedIds: Set<String>) async {
+        await MainActor.run { [weak self] in
+            self?.isDetectingOrphans = true
+            self?.orphans = []
+            self?.selectedOrphanIds = []
+        }
+        let detected = await orphanDetector.detect(installedBundleIds: installedIds)
+        await MainActor.run { [weak self] in
+            guard let self else { return }
+            self.orphans = detected
+            self.isDetectingOrphans = false
+        }
+    }
+
+    // MARK: - Orphan selection
+
+    func toggleOrphan(id: UUID) {
+        if selectedOrphanIds.contains(id) {
+            selectedOrphanIds.remove(id)
+        } else {
+            selectedOrphanIds.insert(id)
+        }
+    }
+
+    var selectedOrphans: [OrphanDetector.Orphan] {
+        orphans.filter { selectedOrphanIds.contains($0.id) }
+    }
+
+    var orphansSummary: (count: Int, totalSize: Int64) {
+        let count = orphans.reduce(0) { $0 + $1.paths.count }
+        let totalSize = orphans.reduce(Int64(0)) { $0 + $1.totalSize }
+        return (count, totalSize)
     }
 
     // MARK: - Lazy remnant scanning
@@ -228,7 +275,7 @@ final class UninstallerViewModel: ObservableObject {
     }
 
     var selectedTotalSize: Int64 {
-        selectedApps.reduce(Int64(0)) { acc, app in
+        let appsTotal = selectedApps.reduce(Int64(0)) { acc, app in
             let bundle = app.bundleSize
             let chosen = selectedRemnantIds[app.id] ?? defaultSelectedRemnantIds(for: app.id)
             let remnants = remnantsByAppId[app.id] ?? []
@@ -237,6 +284,12 @@ final class UninstallerViewModel: ObservableObject {
                 .reduce(Int64(0)) { $0 + $1.size }
             return acc + bundle + remnantBytes
         }
+        let orphansTotal = selectedOrphans.reduce(Int64(0)) { $0 + $1.totalSize }
+        return appsTotal + orphansTotal
+    }
+
+    var hasUninstallSelection: Bool {
+        !selectedAppIds.isEmpty || !selectedOrphanIds.isEmpty
     }
 
     private func defaultSelectedRemnantIds(for appId: String) -> Set<UUID> {
@@ -328,11 +381,11 @@ final class UninstallerViewModel: ObservableObject {
         }
     }
 
-    /// Compose the trash list from selected apps + their selected remnants.
+    /// Compose the trash list from selected apps + their selected remnants
+    /// + any selected orphan groups.
     private func buildUninstallItems() -> [JunkItem] {
         var items: [JunkItem] = []
         for app in selectedApps {
-            // The .app bundle itself
             items.append(JunkItem(
                 name: "\(app.name) \(app.version) (app bundle)",
                 path: app.bundlePath,
@@ -342,7 +395,6 @@ final class UninstallerViewModel: ObservableObject {
                 appBundleId: app.id
             ))
 
-            // Selected remnants for this app
             let chosen = selectedRemnantIds[app.id] ?? defaultSelectedRemnantIds(for: app.id)
             let remnants = remnantsByAppId[app.id] ?? []
             for remnant in remnants where chosen.contains(remnant.id) {
@@ -356,6 +408,20 @@ final class UninstallerViewModel: ObservableObject {
                 ))
             }
         }
+
+        for orphan in selectedOrphans {
+            for path in orphan.paths {
+                items.append(JunkItem(
+                    name: "\(orphan.inferredName) — \(path.url.lastPathComponent)",
+                    path: path.url,
+                    size: path.size,
+                    safetyLevel: .cautious,
+                    categoryId: "uninstall.orphan.\(path.category.rawValue)",
+                    appBundleId: orphan.bundleId
+                ))
+            }
+        }
+
         return items
     }
 }

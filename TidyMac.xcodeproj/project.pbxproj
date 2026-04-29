@@ -45,6 +45,7 @@
 		100000000000000000000116 /* UninstallerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000089 /* UninstallerViewModel.swift */; };
 		100000000000000000000117 /* UninstallerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000120 /* UninstallerView.swift */; };
 		100000000000000000000118 /* AppDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000121 /* AppDetailSheet.swift */; };
+		100000000000000000000119 /* OrphanDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000123 /* OrphanDetector.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -88,6 +89,7 @@
 		100000000000000000000089 /* UninstallerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerViewModel.swift; sourceTree = "<group>"; };
 		100000000000000000000120 /* UninstallerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerView.swift; sourceTree = "<group>"; };
 		100000000000000000000121 /* AppDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDetailSheet.swift; sourceTree = "<group>"; };
+		100000000000000000000123 /* OrphanDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrphanDetector.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -230,6 +232,7 @@
 				100000000000000000000068 /* CleaningService.swift */,
 				100000000000000000000087 /* AppDiscoveryService.swift */,
 				100000000000000000000088 /* RemnantScanner.swift */,
+				100000000000000000000123 /* OrphanDetector.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -349,6 +352,7 @@
 				100000000000000000000116 /* UninstallerViewModel.swift in Sources */,
 				100000000000000000000117 /* UninstallerView.swift in Sources */,
 				100000000000000000000118 /* AppDetailSheet.swift in Sources */,
+				100000000000000000000119 /* OrphanDetector.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

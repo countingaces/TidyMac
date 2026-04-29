@@ -270,6 +270,11 @@ private struct AppList: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 1) {
+                if !viewModel.orphans.isEmpty || viewModel.isDetectingOrphans {
+                    OrphansSection(viewModel: viewModel)
+                        .padding(.bottom, 6)
+                }
+
                 ForEach(viewModel.visibleApps) { app in
                     AppRow(
                         app: app,
@@ -282,6 +287,116 @@ private struct AppList: View {
             .padding(.vertical, 4)
             .padding(.horizontal, 6)
         }
+    }
+}
+
+// MARK: - Orphans
+
+private struct OrphansSection: View {
+    @ObservedObject var viewModel: UninstallerViewModel
+
+    var body: some View {
+        let theme = viewModel.moduleInfo.colorTheme
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                viewModel.isOrphansSectionExpanded.toggle()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: viewModel.isOrphansSectionExpanded
+                          ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12)
+
+                    Image(systemName: "questionmark.folder.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(theme.gradient)
+                        .frame(width: 24)
+
+                    if viewModel.isDetectingOrphans {
+                        Text("Looking for orphaned files…")
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                        ProgressView().controlSize(.small)
+                    } else {
+                        let summary = viewModel.orphansSummary
+                        Text("\(summary.count) orphaned file\(summary.count == 1 ? "" : "s") from \(viewModel.orphans.count) removed app\(viewModel.orphans.count == 1 ? "" : "s")")
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                        Text(humanReadableSize(summary.totalSize))
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(theme.primary)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(theme.primary.opacity(0.06))
+                )
+            }
+            .buttonStyle(.plain)
+
+            if viewModel.isOrphansSectionExpanded {
+                VStack(spacing: 1) {
+                    ForEach(viewModel.orphans) { orphan in
+                        OrphanRow(orphan: orphan, viewModel: viewModel)
+                    }
+                }
+                .padding(.leading, 22)
+            }
+        }
+    }
+}
+
+private struct OrphanRow: View {
+    let orphan: OrphanDetector.Orphan
+    @ObservedObject var viewModel: UninstallerViewModel
+    @State private var isHovered = false
+
+    var body: some View {
+        let isSelected = viewModel.selectedOrphanIds.contains(orphan.id)
+        let theme = viewModel.moduleInfo.colorTheme
+
+        HStack(spacing: 10) {
+            Toggle("", isOn: Binding(
+                get: { isSelected },
+                set: { _ in viewModel.toggleOrphan(id: orphan.id) }
+            ))
+            .toggleStyle(.checkbox)
+            .labelsHidden()
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(orphan.inferredName)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(orphan.bundleId)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer(minLength: 8)
+
+            Text("\(orphan.paths.count) location\(orphan.paths.count == 1 ? "" : "s")")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+
+            Text(humanReadableSize(orphan.totalSize))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 70, alignment: .trailing)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isSelected ? theme.primary.opacity(0.10)
+                      : (isHovered ? Color.primary.opacity(0.04) : Color.clear))
+        )
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .help(orphan.paths.map { $0.url.path }.joined(separator: "\n"))
     }
 }
 
@@ -407,9 +522,10 @@ private struct BottomBar: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            if !viewModel.selectedAppIds.isEmpty {
+            if viewModel.hasUninstallSelection {
                 Button("Deselect All") {
                     viewModel.selectedAppIds.removeAll()
+                    viewModel.selectedOrphanIds.removeAll()
                 }
                 .buttonStyle(.link)
             }
@@ -417,12 +533,12 @@ private struct BottomBar: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                if viewModel.selectedAppIds.isEmpty {
+                if !viewModel.hasUninstallSelection {
                     Text("Nothing selected")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("\(viewModel.selectedAppIds.count) app\(viewModel.selectedAppIds.count == 1 ? "" : "s") selected")
+                    Text(selectionDescription)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Text(humanReadableSize(viewModel.selectedTotalSize))
@@ -455,6 +571,15 @@ private struct BottomBar: View {
     }
 
     private var canUninstall: Bool {
-        !viewModel.selectedAppIds.isEmpty
+        viewModel.hasUninstallSelection
+    }
+
+    private var selectionDescription: String {
+        let appCount = viewModel.selectedAppIds.count
+        let orphanCount = viewModel.selectedOrphanIds.count
+        var parts: [String] = []
+        if appCount > 0 { parts.append("\(appCount) app\(appCount == 1 ? "" : "s")") }
+        if orphanCount > 0 { parts.append("\(orphanCount) orphan group\(orphanCount == 1 ? "" : "s")") }
+        return parts.joined(separator: " + ") + " selected"
     }
 }
