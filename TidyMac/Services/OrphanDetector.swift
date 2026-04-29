@@ -35,7 +35,13 @@ struct OrphanDetector: Sendable {
     /// still installed.
     func detect(installedBundleIds: Set<String>) async -> [Orphan] {
         let preservedPrefixes = buildPreservedPrefixes(from: installedBundleIds)
-        let installedSet = Set(installedBundleIds.map { $0.lowercased() })
+        var installedSet = Set(installedBundleIds.map { $0.lowercased() })
+
+        // Always treat TidyMac itself as installed, even when running from
+        // a path AppDiscoveryService doesn't scan (e.g. Xcode's DerivedData).
+        if let me = Bundle.main.bundleIdentifier?.lowercased() {
+            installedSet.insert(me)
+        }
 
         let recentlyModifiedCutoff = Date().addingTimeInterval(-24 * 60 * 60)
         let home = URL(fileURLWithPath: NSHomeDirectory())
@@ -96,6 +102,12 @@ struct OrphanDetector: Sendable {
                 // Must look like a bundle id (contain at least one dot) so we
                 // don't flag generic shared folders like "Google" or "Adobe".
                 guard candidateId.contains(".") else { continue }
+
+                // System extension containers (file providers, Safari/Finder
+                // extensions, browser helpers, Team-ID-prefixed helpers) live
+                // in ~/Library/Containers but can't be removed via
+                // NSWorkspace.recycle. Skip them to avoid noisy failures.
+                if RemnantScanner.looksLikeSystemExtensionContainer(candidateId) { continue }
 
                 let lowerCandidate = candidateId.lowercased()
 

@@ -197,9 +197,51 @@ struct RemnantScanner: Sendable {
     private func bundleIdDirectoryMatcher(_ name: String, app: AppInfo) -> AppRemnant.MatchConfidence? {
         let lower = name.lowercased()
         let bundleId = app.id.lowercased()
+
+        // Skip system-extension-like containers — macOS won't let us trash
+        // them via NSWorkspace.recycle even when they're owned by the user.
+        // The parent app's own uninstaller (or pluginkit / OSSystemExtension
+        // APIs) is the right tool for these.
+        if Self.looksLikeSystemExtensionContainer(name) { return nil }
+
         if lower == bundleId { return .exact }
         if lower.hasPrefix(bundleId + ".") { return .prefixMatch }
         return nil
+    }
+
+    /// Detects names like:
+    ///   com.foo.app.fileprovider
+    ///   com.foo.app.SafariExtension
+    ///   com.foo.app.FinderSync
+    ///   2BUA8C4S2C.com.1password.browser-helper   (Team ID prefix)
+    static func looksLikeSystemExtensionContainer(_ name: String) -> Bool {
+        // Team ID prefix: 10 alphanumeric chars followed by a dot.
+        if name.count > 11 {
+            let prefix = String(name.prefix(10))
+            let separator = name[name.index(name.startIndex, offsetBy: 10)]
+            if separator == ".", prefix.allSatisfy({ $0.isLetter || $0.isNumber }) {
+                return true
+            }
+        }
+
+        let lower = name.lowercased()
+        let suffixes = [
+            ".fileprovider",
+            ".transferextension",
+            ".safariextension",
+            ".sendtoextension",
+            ".contextmenuextension",
+            ".findersync",
+            ".notificationserviceextension",
+            ".notification-content-extension",
+            ".quicklookextension",
+            ".previewextension",
+            ".photoextension",
+            ".auth-service-extension",
+            ".browser-helper",
+            ".credentialprovider"
+        ]
+        return suffixes.contains(where: { lower.hasSuffix($0) })
     }
 
     /// Matches entries prefixed with "group." for Group Containers.
