@@ -89,30 +89,28 @@ private struct SidebarItemRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 Image(systemName: item.symbolName)
                     .font(.system(size: 13, weight: .medium))
                     .frame(width: 20, height: 20)
                     .foregroundStyle(iconStyle)
 
-                Text(item.title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.85))
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.title)
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.85))
+                        .lineLimit(1)
+
+                    if let badge = appState.sidebarBadges[item] {
+                        Text(badge)
+                            .font(.caption)
+                            .foregroundStyle(item.theme.primary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    }
+                }
 
                 Spacer(minLength: 0)
-
-                if let badge = appState.sidebarBadges[item] {
-                    Text(badge)
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(item.theme.primary)
-                        .monospacedDigit()
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule().fill(item.theme.primary.opacity(0.14))
-                        )
-                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
