@@ -36,11 +36,13 @@ final class CleaningService {
     enum CleaningError: LocalizedError {
         case recycleFailed
         case cancelled
+        case simctlFailed(String)
 
         var errorDescription: String? {
             switch self {
             case .recycleFailed: return "macOS refused to move the item to Trash."
             case .cancelled:     return "Cleaning was cancelled."
+            case .simctlFailed(let detail): return detail
             }
         }
     }
@@ -157,6 +159,22 @@ final class CleaningService {
             return
         }
 
+        // iOS/watchOS/tvOS/xrOS simulator runtimes are root-owned and live in
+        // /Library/Developer/CoreSimulator/Volumes/. NSWorkspace.recycle can't
+        // touch them. Route the delete through `xcrun simctl runtime delete`
+        // which talks to Apple's CoreSimulator daemon (already privileged).
+        if let build = Self.simulatorRuntimeBuild(from: url) {
+            try await deleteSimulatorRuntime(build: build)
+            return
+        }
+
+        // Simulator devices are at ~/Library/Developer/CoreSimulator/Devices/<UUID>/
+        // and are also managed by the CoreSimulator daemon.
+        if let uuid = Self.simulatorDeviceUUID(from: url) {
+            try await deleteSimulatorDevice(uuid: uuid)
+            return
+        }
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             NSWorkspace.shared.recycle([url]) { newURLs, error in
                 if let error {
@@ -178,6 +196,123 @@ final class CleaningService {
         if path == homeTrash || path.hasPrefix(homeTrash + "/") { return true }
         if path.hasPrefix("/Volumes/") && path.range(of: "/.Trashes/") != nil { return true }
         return false
+    }
+
+    // MARK: - Simulator deletion via xcrun simctl
+
+    /// Returns the build version (e.g. "22G86") if the URL refers to a
+    /// simulator runtime volume root like /Library/Developer/CoreSimulator/Volumes/iOS_22G86.
+    private static func simulatorRuntimeBuild(from url: URL) -> String? {
+        let parent = url.deletingLastPathComponent().path
+        guard parent == "/Library/Developer/CoreSimulator/Volumes" else { return nil }
+        let last = url.lastPathComponent
+        let prefixes = ["iOS_", "watchOS_", "tvOS_", "xrOS_", "visionOS_", "macOS_"]
+        for prefix in prefixes where last.hasPrefix(prefix) {
+            return String(last.dropFirst(prefix.count))
+        }
+        return nil
+    }
+
+    /// Returns the device UUID if the URL refers to a simulator device root.
+    private static func simulatorDeviceUUID(from url: URL) -> String? {
+        let devicesRoot = NSHomeDirectory() + "/Library/Developer/CoreSimulator/Devices"
+        guard url.deletingLastPathComponent().path == devicesRoot else { return nil }
+        let last = url.lastPathComponent
+        // Loose UUID check — 8-4-4-4-12 hex layout.
+        guard last.count == 36 else { return nil }
+        let parts = last.split(separator: "-").map(String.init)
+        let lengths = [8, 4, 4, 4, 12]
+        guard parts.count == 5,
+              zip(parts, lengths).allSatisfy({ $0.count == $1 })
+        else { return nil }
+        return last
+    }
+
+    private var runtimeUUIDByBuild: [String: String]?
+
+    private func deleteSimulatorRuntime(build: String) async throws {
+        if runtimeUUIDByBuild == nil {
+            runtimeUUIDByBuild = try await fetchRuntimeUUIDMap()
+        }
+        guard let uuid = runtimeUUIDByBuild?[build] else {
+            throw CleaningError.simctlFailed(
+                "Simulator runtime with build \(build) not found in `xcrun simctl runtime list`."
+            )
+        }
+        try await runSimctl(["runtime", "delete", uuid])
+        // The deleted runtime won't be re-listed; clear the cache so a
+        // subsequent rescan picks up the actual current state.
+        runtimeUUIDByBuild = nil
+    }
+
+    private func deleteSimulatorDevice(uuid: String) async throws {
+        try await runSimctl(["delete", uuid])
+    }
+
+    private func fetchRuntimeUUIDMap() async throws -> [String: String] {
+        let stdout = try await runSimctlCapturing(["runtime", "list", "-j"])
+        guard let data = stdout.data(using: .utf8),
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return [:]
+        }
+
+        var map: [String: String] = [:]
+        for (uuid, value) in json {
+            if let runtime = value as? [String: Any],
+               let build = runtime["build"] as? String {
+                map[build] = uuid
+            }
+        }
+        return map
+    }
+
+    @discardableResult
+    private func runSimctl(_ arguments: [String]) async throws -> Int32 {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.arguments = ["simctl"] + arguments
+        let stderr = Pipe()
+        process.standardError = stderr
+        process.standardOutput = Pipe()
+
+        do {
+            try process.run()
+        } catch {
+            throw CleaningError.simctlFailed("Couldn't launch xcrun: \(error.localizedDescription)")
+        }
+        process.waitUntilExit()
+
+        if process.terminationStatus != 0 {
+            let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+            let errMsg = String(data: errData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "exit \(process.terminationStatus)"
+            throw CleaningError.simctlFailed("simctl \(arguments.joined(separator: " ")) — \(errMsg)")
+        }
+        return process.terminationStatus
+    }
+
+    private func runSimctlCapturing(_ arguments: [String]) async throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.arguments = ["simctl"] + arguments
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+        } catch {
+            throw CleaningError.simctlFailed("Couldn't launch xcrun: \(error.localizedDescription)")
+        }
+        process.waitUntilExit()
+
+        if process.terminationStatus != 0 {
+            throw CleaningError.simctlFailed("simctl exit \(process.terminationStatus)")
+        }
+
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     // MARK: - Log persistence
