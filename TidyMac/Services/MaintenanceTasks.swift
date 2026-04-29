@@ -211,37 +211,44 @@ struct FreeUpRAMTask: MaintenanceTask {
 struct FreeUpPurgeableSpaceTask: MaintenanceTask {
     let id = "purge-purgeable"
     let name = "Free Up Purgeable Space"
-    let description = "Reclaims disk space APFS has flagged as deletable but hasn't yet released."
+    let description = "Thins Time Machine local snapshots to release purgeable disk space."
     let icon = "internaldrive"
     let estimatedDuration = "A few seconds to a minute"
-    let requiresAdmin = false
+    let requiresAdmin = true
 
     func dryRun() async -> MaintenanceTaskPreview {
+        let snapshots = (try? await runShell("/usr/bin/tmutil", ["listlocalsnapshots", "/"])) ?? ""
+        // Each non-empty line after the header is one snapshot.
+        let count = snapshots
+            .split(separator: "\n")
+            .filter { $0.contains("com.apple.TimeMachine") }
+            .count
+
         let info = (try? await runShell("/usr/sbin/diskutil", ["info", "/"])) ?? ""
-        // The "Container Free Space" line includes the purgeable bytes in
-        // parentheses on modern macOS — e.g. "5.0 GB (5,000,000,000 Bytes)
-        // (Purgeable: 1.2 GB ...)".
         let purgeable = parsePurgeable(info)
-        let summary = purgeable.map {
-            "About \(formatBytes($0)) is currently purgeable and can be reclaimed."
-        } ?? "Couldn't determine current purgeable space — the actual amount will be shown after running."
+        let summaryParts: [String] = [
+            count > 0 ? "\(count) Time Machine local snapshot\(count == 1 ? "" : "s") will be thinned." : "No Time Machine local snapshots to thin.",
+            purgeable.map { "About \(formatBytes($0)) is currently flagged purgeable." } ?? ""
+        ].filter { !$0.isEmpty }
+
         return MaintenanceTaskPreview(
-            description: summary,
-            warnings: [],
-            estimatedImpact: purgeable.map { $0 > 1_000_000_000 ? .significant : .moderate } ?? .moderate
+            description: summaryParts.joined(separator: " "),
+            warnings: ["Most 'purgeable' space on modern Macs is Time Machine snapshots — iCloud cached files aren't reclaimable from here."],
+            estimatedImpact: count > 0 ? .significant : .minimal
         )
     }
 
     func execute() async throws -> MaintenanceTaskResult {
         let start = Date()
-        // diskutil's purge verb takes no extra args. Output looks like
-        // "Started APFS operation … Finished APFS operation".
-        let output = try await runShell("/usr/sbin/diskutil", ["apfs", "purgePurgeableSpace", "/"])
+        // Thin every local snapshot, urgency 4 (max). Asking for ~1 TB
+        // means "as much as you can release"; macOS deletes oldest first
+        // and stops when there's nothing left to reclaim.
+        let output = try await runShellAsAdmin("/usr/bin/tmutil thinlocalsnapshots / 999999999999 4")
         return MaintenanceTaskResult(
             success: true,
-            summary: "Asked APFS to reclaim purgeable space.",
+            summary: "Local Time Machine snapshots thinned.",
             duration: Date().timeIntervalSince(start),
-            details: output
+            details: output.trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }
 

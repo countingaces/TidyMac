@@ -103,18 +103,46 @@ final class OptimizationViewModel: ObservableObject {
 
     /// Combines the plist mutation and the launchctl call into one shell
     /// invocation so the user sees a single password prompt per click.
+    /// Strict ordering with `set -e`: plutil failure aborts the script
+    /// (so we don't claim success when the underlying file wasn't touched).
+    /// launchctl warnings ("service is already disabled") stay swallowed —
+    /// the plist's Disabled key is the source of truth.
     private func applyAdminToggle(item: StartupItem, willEnable: Bool) async throws {
         guard let plistURL = item.plistURL else { return }
         let plistArg = quotedShellArg(plistURL.path)
         let label = launchctlLabel(from: item)
         let domain = launchctlDomain(for: item)
 
+        // Disable: plutil MUST succeed (otherwise nothing actually changed).
+        // Enable: plutil -remove can fail if the key isn't present, that's
+        //         fine — squash with `|| :`.
         let plistCmd = willEnable
-            ? "/usr/bin/plutil -remove Disabled \(plistArg) 2>/dev/null || true"
+            ? "/usr/bin/plutil -remove Disabled \(plistArg) 2>/dev/null || :"
             : "/usr/bin/plutil -replace Disabled -bool YES \(plistArg)"
-        let launchctlCmd = "/bin/launchctl \(willEnable ? "enable" : "disable") \(domain)/\(label) 2>/dev/null || true"
+        let launchctlCmd = "/bin/launchctl \(willEnable ? "enable" : "disable") \(domain)/\(label) 2>/dev/null || :"
+        let script = "set -e; \(plistCmd); \(launchctlCmd)"
 
-        _ = try await runShellAsAdmin("\(plistCmd); \(launchctlCmd)")
+        _ = try await runShellAsAdmin(script)
+
+        // Belt-and-suspenders: re-read the plist and confirm the Disabled
+        // flag actually took. If plutil silently no-op'd or the file got
+        // restored by a watchdog, the user needs to know.
+        if try !verifyDisabledState(plistURL: plistURL, expectedDisabled: !willEnable) {
+            throw MaintenanceError.commandFailed(
+                "The change ran without errors but \(plistURL.lastPathComponent) still reports the old state. The agent's parent app may be restoring the plist on a watchdog."
+            )
+        }
+    }
+
+    private func verifyDisabledState(plistURL: URL, expectedDisabled: Bool) throws -> Bool {
+        guard let data = try? Data(contentsOf: plistURL),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else {
+            // If we can't read the file at all, assume the worst.
+            return false
+        }
+        let disabled = (plist["Disabled"] as? Bool) ?? false
+        return disabled == expectedDisabled
     }
 
     // MARK: - Removal
