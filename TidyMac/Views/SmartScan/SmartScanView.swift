@@ -50,6 +50,11 @@ struct SmartScanView: View {
         appState.healthScore = viewModel.results?.healthScore
         appState.smartScanResults = viewModel.results
         appState.lastSmartScanDate = viewModel.results?.timestamp
+        // Hand off the actual scanned items so SystemJunk and Uninstaller
+        // can show pre-populated results when the user clicks Review
+        // Details, instead of running their own scans from scratch.
+        appState.smartScanJunkCategories = viewModel.orchestrator.lastJunkCategories
+        appState.smartScanOrphans = viewModel.orchestrator.lastOrphans
     }
 
     @ViewBuilder

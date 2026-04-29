@@ -15,10 +15,14 @@ final class SmartScanOrchestrator: ObservableObject {
 
     /// In-memory cache of the most recent System Junk results. The
     /// persisted SmartScanResults only carries a summary, but the Smart
-    /// Scan UI's "Clean" button needs the actual JunkItem instances to
-    /// run through CleaningService. Cleared on app launch — Smart Scan
-    /// re-scans from scratch each time the app reopens.
+    /// Scan UI's "Clean" button — and the System Junk module when the
+    /// user hits Review Details — needs the actual JunkItem instances.
+    /// Cleared on app launch; user re-runs Smart Scan to refresh.
     private(set) var lastJunkCategories: [ScanCategory<JunkItem>] = []
+    /// Same idea for orphan detection: in-memory cache of the OrphanDetector
+    /// output so the Uninstaller can show pre-scanned orphans on Review
+    /// Details rather than running orphan detection a second time.
+    private(set) var lastOrphans: [OrphanDetector.Orphan] = []
 
     enum SmartScanState: Equatable {
         case idle
@@ -236,6 +240,7 @@ final class SmartScanOrchestrator: ObservableObject {
         try Task.checkCancellation()
         let installedIds = Set(installed.map { $0.id })
         let orphans = await OrphanDetector().detect(installedBundleIds: installedIds)
+        lastOrphans = orphans
         let totalSize = orphans.reduce(Int64(0)) { $0 + $1.totalSize }
 
         let summary = OrphanSummary(

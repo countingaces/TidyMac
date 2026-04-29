@@ -80,6 +80,21 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
         scanState = .idle
     }
 
+    /// Seed the view model with categories scanned by Smart Scan so the
+    /// user can immediately interact with the same items they saw on the
+    /// Smart Scan summary — no second scan, no waiting. Pre-selects every
+    /// safe-rated item to mirror Smart Scan's "Clean N.NN GB" intent.
+    func populate(from categories: [ScanCategory<JunkItem>]) {
+        scanTask?.cancel()
+        results = categories
+        selectedItemIds = Set(categories
+            .flatMap { $0.items }
+            .filter { $0.safetyLevel == .safe }
+            .map { $0.id })
+        selectedCategoryId = categories.first?.id
+        scanState = .complete
+    }
+
     func clean(items: [JunkItem]) async throws {
         guard !items.isEmpty else { return }
         let result = await cleaningService.clean(items: items, onProgress: { _ in })

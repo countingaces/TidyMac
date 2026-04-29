@@ -31,6 +31,16 @@ struct SystemJunkView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            // Hand off from Smart Scan: if the user just ran a Smart Scan
+            // and clicked Review Details, the orchestrator already has the
+            // JunkItems in memory. Show them directly instead of asking
+            // the user to scan again.
+            if viewModel.scanState == .idle && !appState.smartScanJunkCategories.isEmpty {
+                viewModel.populate(from: appState.smartScanJunkCategories)
+                updateBadge(for: viewModel.scanState)
+            }
+        }
         .onChange(of: viewModel.scanState) { _, newState in
             updateBadge(for: newState)
         }

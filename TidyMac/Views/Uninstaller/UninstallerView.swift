@@ -30,7 +30,8 @@ struct UninstallerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             if viewModel.loadState == .idle {
-                await viewModel.loadApps()
+                let handoff = appState.smartScanOrphans.isEmpty ? nil : appState.smartScanOrphans
+                await viewModel.loadApps(prescannedOrphans: handoff)
             }
         }
         .onChange(of: viewModel.loadState) { _, newState in

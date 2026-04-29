@@ -115,17 +115,23 @@ final class UninstallerViewModel: ObservableObject {
 
     // MARK: - Discovery
 
-    func loadApps() async {
+    func loadApps(prescannedOrphans: [OrphanDetector.Orphan]? = nil) async {
         loadState = .loading
         let found = await discoveryService.discoverApps()
         apps = found
         loadState = .loaded
 
-        // Kick off orphan detection in the background once we know the
-        // installed bundle id set.
-        let installedIds = Set(found.map { $0.id })
-        Task { [weak self] in
-            await self?.detectOrphans(installedIds: installedIds)
+        // If Smart Scan already ran orphan detection and handed off the
+        // result, use it directly. Otherwise kick off detection in the
+        // background once we know the installed bundle id set.
+        if let prescannedOrphans {
+            orphans = prescannedOrphans
+            isDetectingOrphans = false
+        } else {
+            let installedIds = Set(found.map { $0.id })
+            Task { [weak self] in
+                await self?.detectOrphans(installedIds: installedIds)
+            }
         }
     }
 
