@@ -94,9 +94,12 @@ func runShell(_ executable: String, _ arguments: [String]) async throws -> Strin
     process.standardOutput = stdout
     process.standardError = stderr
     try process.run()
-    process.waitUntilExit()
+    // Drain pipes BEFORE waitUntilExit. If the command produces more than
+    // the ~64 KB pipe buffer, the child blocks writing while we wait for it
+    // to finish — classic deadlock.
     let outData = stdout.fileHandleForReading.readDataToEndOfFile()
     let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
     let combined = (String(data: outData, encoding: .utf8) ?? "")
         + (String(data: errData, encoding: .utf8) ?? "")
     if process.terminationStatus != 0 {
@@ -126,9 +129,10 @@ func runShellAsAdmin(_ command: String) async throws -> String {
     process.standardOutput = stdout
     process.standardError = stderr
     try process.run()
-    process.waitUntilExit()
+    // Drain pipes BEFORE waitUntilExit — see runShell for the same fix.
     let outData = stdout.fileHandleForReading.readDataToEndOfFile()
     let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
     let out = String(data: outData, encoding: .utf8) ?? ""
     let err = String(data: errData, encoding: .utf8) ?? ""
     if process.terminationStatus != 0 {
@@ -330,8 +334,11 @@ struct RepairDiskPermissionsTask: MaintenanceTask {
     let name = "Repair Disk Permissions"
     let description = "Resets ownership and ACLs on your home directory back to the defaults."
     let icon = "wrench.and.screwdriver"
-    let estimatedDuration = "A minute or two"
+    let estimatedDuration = "Several minutes for large home directories"
     let requiresAdmin = true
+    var warning: String? {
+        "diskutil walks every file in your home folder and can take 5+ minutes on large accounts. Don't quit TidyMac while it runs."
+    }
 
     func dryRun() async -> MaintenanceTaskPreview {
         return MaintenanceTaskPreview(
@@ -344,7 +351,11 @@ struct RepairDiskPermissionsTask: MaintenanceTask {
     func execute() async throws -> MaintenanceTaskResult {
         let start = Date()
         let uid = getuid()
-        _ = try await runShellAsAdmin("/usr/sbin/diskutil resetUserPermissions / \(uid)")
+        // Discard diskutil's per-file output. On a large home directory it
+        // can dump tens of MB of "resetting permissions on …" lines that
+        // osascript would otherwise have to buffer in memory before
+        // returning, slowing the whole task to a crawl.
+        _ = try await runShellAsAdmin("/usr/sbin/diskutil resetUserPermissions / \(uid) >/dev/null 2>&1")
         return MaintenanceTaskResult(
             success: true,
             summary: "Home directory permissions reset to defaults.",
