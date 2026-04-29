@@ -69,13 +69,12 @@ enum MaintenanceCatalog {
             FreeUpPurgeableSpaceTask(),
             FlushDNSCacheTask(),
             ReindexSpotlightTask(),
-            RepairDiskPermissionsTask(),
             ClearFontCachesTask()
         ]
         let mailDir = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library/Mail", isDirectory: true)
         if FileManager.default.fileExists(atPath: mailDir.path) {
-            list.insert(RebuildMailIndexTask(), at: 5)
+            list.insert(RebuildMailIndexTask(), at: 4)
         }
         return list
     }
@@ -328,44 +327,6 @@ struct ReindexSpotlightTask: MaintenanceTask {
         return MaintenanceTaskResult(
             success: true,
             summary: "Spotlight index erased. Reindexing has started in the background.",
-            duration: Date().timeIntervalSince(start),
-            details: nil
-        )
-    }
-}
-
-// MARK: - 5. Repair Disk Permissions
-
-struct RepairDiskPermissionsTask: MaintenanceTask {
-    let id = "repair-permissions"
-    let name = "Repair Disk Permissions"
-    let description = "Resets ownership and ACLs on your home directory back to the defaults."
-    let icon = "wrench.and.screwdriver"
-    let estimatedDuration = "Several minutes for large home directories"
-    let requiresAdmin = true
-    var warning: String? {
-        "diskutil walks every file in your home folder and can take 5+ minutes on large accounts. Don't quit TidyMac while it runs."
-    }
-
-    func dryRun() async -> MaintenanceTaskPreview {
-        return MaintenanceTaskPreview(
-            description: "Will reset user permissions on your home directory using diskutil.",
-            warnings: ["Modern macOS rarely needs this — SIP keeps system files correct. Most useful after a failed app install or migration."],
-            estimatedImpact: .moderate
-        )
-    }
-
-    func execute() async throws -> MaintenanceTaskResult {
-        let start = Date()
-        let uid = getuid()
-        // Discard diskutil's per-file output. On a large home directory it
-        // can dump tens of MB of "resetting permissions on …" lines that
-        // osascript would otherwise have to buffer in memory before
-        // returning, slowing the whole task to a crawl.
-        _ = try await runShellAsAdmin("/usr/sbin/diskutil resetUserPermissions / \(uid) >/dev/null 2>&1")
-        return MaintenanceTaskResult(
-            success: true,
-            summary: "Home directory permissions reset to defaults.",
             duration: Date().timeIntervalSince(start),
             details: nil
         )
