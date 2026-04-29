@@ -24,12 +24,17 @@ struct OptimizationView: View {
         }
         .onChange(of: viewModel.loadState) { _, newState in
             if newState == .loaded {
-                let issues = viewModel.brokenAgentCount
-                appState.sidebarBadges[.optimization] = issues > 0
-                    ? "\(issues) issue\(issues == 1 ? "" : "s")"
-                    : nil
-                appState.lastScanDates[.optimization] = Date()
+                updateBadge()
+                handlePendingActionIfReady()
             }
+        }
+        .onChange(of: viewModel.items.map(\.id)) { _, _ in
+            // Recompute the badge whenever the item list mutates (toggle
+            // an agent off, remove a broken one, etc.).
+            updateBadge()
+        }
+        .onChange(of: appState.pendingAction) { _, _ in
+            handlePendingActionIfReady()
         }
         .alert(
             "Optimization",
@@ -43,6 +48,24 @@ struct OptimizationView: View {
         } message: { msg in
             Text(msg)
         }
+    }
+
+    private func updateBadge() {
+        let issues = viewModel.brokenAgentCount
+        appState.sidebarBadges[.optimization] = issues > 0
+            ? "\(issues) issue\(issues == 1 ? "" : "s")"
+            : nil
+        appState.lastScanDates[.optimization] = Date()
+    }
+
+    /// Handle a pending action posted from the menu bar. Only fires once
+    /// the scan has finished — otherwise we'd try to disable agents we
+    /// haven't loaded yet.
+    private func handlePendingActionIfReady() {
+        guard appState.pendingAction == .disableNonEssentialAgents,
+              viewModel.loadState == .loaded else { return }
+        viewModel.disableAllNonEssential()
+        appState.pendingAction = nil
     }
 
     private var content: some View {

@@ -58,7 +58,8 @@ enum NavigationItem: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .smartScan: return .smartScan
         case .systemJunk, .largeOldFiles: return .cleanup
-        case .optimization, .maintenance: return .speed
+        case .optimization: return .optimization
+        case .maintenance: return .maintenance
         case .uninstaller: return .applications
         case .spaceLens: return .storage
         }

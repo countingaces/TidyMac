@@ -24,7 +24,7 @@ final class MaintenanceViewModel: ObservableObject {
     @Published var lastRunDates: [String: Date] = [:]
     @Published var runState: RunState = .idle
 
-    let theme: ColorTheme = .speed
+    let theme: ColorTheme = .maintenance
 
     private let lastRunDefaultsKey = "TidyMac.MaintenanceLastRun"
 

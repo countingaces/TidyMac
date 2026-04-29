@@ -29,11 +29,22 @@ struct MaintenanceView: View {
             if viewModel.tasks.isEmpty {
                 await viewModel.load()
             }
+            handlePendingActionIfReady()
         }
         .onChange(of: viewModel.lastRunDates) { _, _ in
             updateBadge()
         }
+        .onChange(of: appState.pendingAction) { _, _ in
+            handlePendingActionIfReady()
+        }
         .onAppear { updateBadge() }
+    }
+
+    private func handlePendingActionIfReady() {
+        guard appState.pendingAction == .runMaintenanceTasks,
+              !viewModel.tasks.isEmpty else { return }
+        appState.pendingAction = nil
+        Task { await viewModel.runAllNonAdmin() }
     }
 
     private func updateBadge() {

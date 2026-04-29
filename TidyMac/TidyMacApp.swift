@@ -19,5 +19,20 @@ struct TidyMacApp: App {
         }
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1000, height: 650)
+        .commands {
+            CommandMenu("Tools") {
+                Button("Disable All Non-Essential Launch Agents") {
+                    appState.selection = .optimization
+                    appState.pendingAction = .disableNonEssentialAgents
+                }
+                .keyboardShortcut("D", modifiers: [.command, .shift])
+
+                Button("Run Maintenance") {
+                    appState.selection = .maintenance
+                    appState.pendingAction = .runMaintenanceTasks
+                }
+                .keyboardShortcut("R", modifiers: [.command, .shift])
+            }
+        }
     }
 }

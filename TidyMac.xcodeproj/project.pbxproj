@@ -10,7 +10,6 @@
 		100000000000000000000040 /* TidyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* TidyMacApp.swift */; };
 		100000000000000000000041 /* NavigationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* NavigationItem.swift */; };
 		100000000000000000000042 /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* ColorTheme.swift */; };
-		100000000000000000000043 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000023 /* AppViewModel.swift */; };
 		100000000000000000000044 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000024 /* ContentView.swift */; };
 		100000000000000000000045 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* SidebarView.swift */; };
 		100000000000000000000046 /* PlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000026 /* PlaceholderView.swift */; };
@@ -60,7 +59,6 @@
 		100000000000000000000020 /* TidyMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidyMacApp.swift; sourceTree = "<group>"; };
 		100000000000000000000021 /* NavigationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationItem.swift; sourceTree = "<group>"; };
 		100000000000000000000022 /* ColorTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
-		100000000000000000000023 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
 		100000000000000000000024 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		100000000000000000000025 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		100000000000000000000026 /* PlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderView.swift; sourceTree = "<group>"; };
@@ -159,7 +157,6 @@
 		100000000000000000000005 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
-				100000000000000000000023 /* AppViewModel.swift */,
 				100000000000000000000052 /* SpaceLensViewModel.swift */,
 				100000000000000000000065 /* SystemJunkViewModel.swift */,
 				100000000000000000000089 /* UninstallerViewModel.swift */,
@@ -357,7 +354,6 @@
 				100000000000000000000040 /* TidyMacApp.swift in Sources */,
 				100000000000000000000041 /* NavigationItem.swift in Sources */,
 				100000000000000000000042 /* ColorTheme.swift in Sources */,
-				100000000000000000000043 /* AppViewModel.swift in Sources */,
 				100000000000000000000045 /* SidebarView.swift in Sources */,
 				100000000000000000000046 /* PlaceholderView.swift in Sources */,
 				100000000000000000000047 /* SpaceLensView.swift in Sources */,

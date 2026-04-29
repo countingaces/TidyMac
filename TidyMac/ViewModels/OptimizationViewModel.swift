@@ -15,7 +15,7 @@ final class OptimizationViewModel: ObservableObject {
     @Published var selectedCategory: StartupItem.Category = .launchAgents
     @Published var alertMessage: String?
 
-    let theme: ColorTheme = .speed
+    let theme: ColorTheme = .optimization
     private let scanner = OptimizationScanner()
 
     var brokenAgentCount: Int {
@@ -116,6 +116,18 @@ final class OptimizationViewModel: ObservableObject {
         let brokenIds = items.filter { $0.isIssue && !$0.requiresAdmin }.map { $0.id }
         for id in brokenIds {
             removeItem(id: id)
+        }
+    }
+
+    /// Tools menu entry point. Disables every user-scoped Launch Agent
+    /// that's currently enabled. Apple agents are already filtered out at
+    /// scan time; system agents skip themselves because they need admin.
+    func disableAllNonEssential() {
+        let candidates = items.filter {
+            $0.source == .userLaunchAgent && $0.isEnabled
+        }
+        for item in candidates {
+            toggleItem(id: item.id)
         }
     }
 

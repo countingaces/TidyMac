@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = AppViewModel()
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         HStack(spacing: 0) {
-            SidebarView(selection: $viewModel.selection)
+            SidebarView(selection: $appState.selection)
                 .frame(width: 200)
                 .frame(maxHeight: .infinity)
 
@@ -14,7 +14,7 @@ struct ContentView: View {
             mainContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(
-                    viewModel.selection.theme.backgroundGradient
+                    appState.selection.theme.backgroundGradient
                         .ignoresSafeArea()
                 )
         }
@@ -22,15 +22,19 @@ struct ContentView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        switch viewModel.selection {
+        switch appState.selection {
         case .spaceLens:
             SpaceLensView()
         case .systemJunk:
             SystemJunkView()
         case .uninstaller:
             UninstallerView()
+        case .optimization:
+            OptimizationView()
+        case .maintenance:
+            MaintenanceView()
         default:
-            PlaceholderView(item: viewModel.selection)
+            PlaceholderView(item: appState.selection)
         }
     }
 }
