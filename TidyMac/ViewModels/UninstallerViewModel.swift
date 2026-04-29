@@ -275,12 +275,16 @@ final class UninstallerViewModel: ObservableObject {
     }
 
     /// Guard pattern — returns why an app can or can't be uninstalled.
+    /// Only TidyMac itself is hard-blocked. For everything else, defer to
+    /// macOS: if a path is genuinely SIP-protected (apps on the sealed
+    /// system volume in /System/Applications/), the trash attempt will
+    /// fail and surface in the log, but the user is free to try. Apple
+    /// apps installed in /Applications/ (iMovie, GarageBand, Keynote,
+    /// Pages, Numbers, etc.) are removable like any other app and
+    /// shouldn't have been blocked at all.
     func eligibility(for app: AppInfo) -> UninstallEligibility {
         if app.id == Bundle.main.bundleIdentifier {
             return .blocked(reason: "TidyMac can't uninstall itself. That'd be a paradox.")
-        }
-        if app.id.hasPrefix("com.apple.") || app.category == .appleBuiltIn {
-            return .blocked(reason: "\(app.name) is part of macOS and is protected by the system. It can't be removed.")
         }
         if NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == app.id }) {
             return .requiresQuit(appName: app.name)
