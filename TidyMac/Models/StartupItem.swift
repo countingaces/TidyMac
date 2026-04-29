@@ -46,6 +46,7 @@ struct StartupItem: Identifiable, Hashable {
     enum StartupItemSource: String {
         case userLaunchAgent
         case systemLaunchAgent
+        case systemLaunchDaemon
         case loginItemSMAppService
         case loginItemLegacy
         case runningProcess
@@ -87,7 +88,7 @@ extension StartupItem {
         switch source {
         case .loginItemSMAppService, .loginItemLegacy:
             return .loginItems
-        case .userLaunchAgent, .systemLaunchAgent, .runningProcess:
+        case .userLaunchAgent, .systemLaunchAgent, .systemLaunchDaemon, .runningProcess:
             return .launchAgents
         }
     }

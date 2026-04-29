@@ -12,10 +12,11 @@ struct OptimizationScanner: Sendable {
     func scan() async -> [StartupItem] {
         async let userAgents = scanLaunchAgents(at: userAgentsURL, source: .userLaunchAgent)
         async let systemAgents = scanLaunchAgents(at: systemAgentsURL, source: .systemLaunchAgent)
+        async let systemDaemons = scanLaunchAgents(at: systemDaemonsURL, source: .systemLaunchDaemon)
         async let loginItems = scanLoginItems()
         async let heavy = scanHeavyConsumers()
 
-        return await userAgents + systemAgents + loginItems + heavy
+        return await userAgents + systemAgents + systemDaemons + loginItems + heavy
     }
 
     private var userAgentsURL: URL {
@@ -25,6 +26,14 @@ struct OptimizationScanner: Sendable {
 
     private var systemAgentsURL: URL {
         URL(fileURLWithPath: "/Library/LaunchAgents")
+    }
+
+    /// /Library/LaunchDaemons holds root-owned daemons started before login —
+    /// Docker's vmnetd, zoom's daemon, iLok licenseDaemon, etc. CleanMyMac
+    /// surfaces these alongside agents under one tab; do the same. We never
+    /// touch /System/Library/LaunchDaemons (Apple-only, all filtered).
+    private var systemDaemonsURL: URL {
+        URL(fileURLWithPath: "/Library/LaunchDaemons")
     }
 
     // MARK: - Launch Agents
@@ -81,15 +90,15 @@ struct OptimizationScanner: Sendable {
 
         let isExeMissing = exeURL.map { !FileManager.default.fileExists(atPath: $0.path) } ?? true
 
-        // Map the agent back to its parent app via two strategies:
-        //   1. If the executable lives inside an .app bundle, walk up to find it.
-        //   2. Otherwise, see if the label's first two dot-segments match
-        //      an installed app's bundle id (best-effort — many third-party
-        //      labels don't follow this convention).
-        let parentBundleId = inferParentBundleId(label: label, exeURL: exeURL)
-        let isParentMissing = parentBundleId.map { !isAppInstalled(bundleId: $0) } ?? false
+        // Walk up from the executable to its enclosing .app bundle, if any.
+        // Read that bundle's CFBundleName for the human name and CFBundle-
+        // Identifier for parent-installed checks. Falls back to the label-
+        // humanizer when the executable isn't inside an .app at all (e.g.
+        // /usr/local/bin helpers from Homebrew installs).
+        let parentInfo = parentAppInfo(for: exeURL)
+        let isParentMissing = parentInfo?.bundleId.map { !isAppInstalled(bundleId: $0) } ?? false
 
-        let humanName = humanizeLabel(label)
+        let humanName = parentInfo?.bundleName ?? humanizeLabel(label)
         let type: StartupItem.StartupItemType = scheduled ? .scheduledTask : .backgroundAgent
 
         return StartupItem(
@@ -98,14 +107,14 @@ struct OptimizationScanner: Sendable {
             type: type,
             source: source,
             executablePath: exeURL,
-            parentAppBundleId: parentBundleId,
+            parentAppBundleId: parentInfo?.bundleId,
             icon: iconForExecutable(exeURL),
             isEnabled: !disabled,
             isExecutableMissing: isExeMissing,
             isParentAppMissing: isParentMissing,
             keepAlive: keepAlive,
             runAtLoad: runAtLoad,
-            requiresAdmin: source == .systemLaunchAgent,
+            requiresAdmin: source == .systemLaunchAgent || source == .systemLaunchDaemon,
             plistURL: plistURL,
             cpuPercent: nil,
             memoryMB: nil
@@ -124,28 +133,33 @@ struct OptimizationScanner: Sendable {
 
     // MARK: - Parent app inference
 
-    private func inferParentBundleId(label: String, exeURL: URL?) -> String? {
-        // Walk up from the executable to the enclosing .app bundle.
-        if let exeURL {
-            var dir = exeURL.deletingLastPathComponent()
-            while dir.path != "/" {
-                if dir.pathExtension == "app" {
-                    let infoPlist = dir.appendingPathComponent("Contents/Info.plist")
-                    if let data = try? Data(contentsOf: infoPlist),
-                       let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-                       let bundleId = plist["CFBundleIdentifier"] as? String {
-                        return bundleId
-                    }
-                    return nil
-                }
-                dir = dir.deletingLastPathComponent()
-            }
-        }
+    /// Resolves the parent .app bundle for an agent's executable, returning
+    /// the bundle's display name + identifier. Walking up the path is more
+    /// reliable than guessing from the label (Grammarly's labels start with
+    /// "com.grammarly.ProjectLlama" — humanizing that gives "Projectllama
+    /// Shepherd" instead of "Grammarly Update Service").
+    private struct ParentAppInfo {
+        let bundleName: String?
+        let bundleId: String?
+    }
 
-        // Fallback: try the label's first two dot-segments as a bundle id.
-        // e.g. "com.spotify.webhelper" → "com.spotify.client" — too speculative,
-        // skip it. We'll rely on the executable walk above instead.
-        _ = label
+    private func parentAppInfo(for exeURL: URL?) -> ParentAppInfo? {
+        guard let exeURL else { return nil }
+        var dir = exeURL.deletingLastPathComponent()
+        while dir.path != "/" {
+            if dir.pathExtension == "app" {
+                let infoPlist = dir.appendingPathComponent("Contents/Info.plist")
+                guard let data = try? Data(contentsOf: infoPlist),
+                      let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+                else { return nil }
+                let bundleName = (plist["CFBundleDisplayName"] as? String)
+                    ?? (plist["CFBundleName"] as? String)
+                    ?? dir.deletingPathExtension().lastPathComponent
+                let bundleId = plist["CFBundleIdentifier"] as? String
+                return ParentAppInfo(bundleName: bundleName, bundleId: bundleId)
+            }
+            dir = dir.deletingLastPathComponent()
+        }
         return nil
     }
 
