@@ -30,6 +30,8 @@
 		100000000000000000000091 /* ScanModuleProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000061 /* ScanModuleProtocol.swift */; };
 		100000000000000000000092 /* JunkItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000063 /* JunkItem.swift */; };
 		100000000000000000000093 /* SystemJunkScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000064 /* SystemJunkScanner.swift */; };
+		100000000000000000000094 /* SystemJunkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000065 /* SystemJunkViewModel.swift */; };
+		100000000000000000000095 /* SystemJunkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000066 /* SystemJunkView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +60,8 @@
 		100000000000000000000061 /* ScanModuleProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModuleProtocol.swift; sourceTree = "<group>"; };
 		100000000000000000000063 /* JunkItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JunkItem.swift; sourceTree = "<group>"; };
 		100000000000000000000064 /* SystemJunkScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkScanner.swift; sourceTree = "<group>"; };
+		100000000000000000000065 /* SystemJunkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkViewModel.swift; sourceTree = "<group>"; };
+		100000000000000000000066 /* SystemJunkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +115,7 @@
 			children = (
 				100000000000000000000023 /* AppViewModel.swift */,
 				100000000000000000000052 /* SpaceLensViewModel.swift */,
+				100000000000000000000065 /* SystemJunkViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -122,8 +127,17 @@
 				100000000000000000000025 /* SidebarView.swift */,
 				100000000000000000000026 /* PlaceholderView.swift */,
 				100000000000000000000053 /* SpaceLens */,
+				100000000000000000000067 /* SystemJunk */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		100000000000000000000067 /* SystemJunk */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000066 /* SystemJunkView.swift */,
+			);
+			path = SystemJunk;
 			sourceTree = "<group>";
 		};
 		100000000000000000000053 /* SpaceLens */ = {
@@ -265,6 +279,8 @@
 				100000000000000000000091 /* ScanModuleProtocol.swift in Sources */,
 				100000000000000000000092 /* JunkItem.swift in Sources */,
 				100000000000000000000093 /* SystemJunkScanner.swift in Sources */,
+				100000000000000000000094 /* SystemJunkViewModel.swift in Sources */,
+				100000000000000000000095 /* SystemJunkView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

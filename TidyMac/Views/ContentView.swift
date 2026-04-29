@@ -25,6 +25,8 @@ struct ContentView: View {
         switch viewModel.selection {
         case .spaceLens:
             SpaceLensView()
+        case .systemJunk:
+            SystemJunkView()
         default:
             PlaceholderView(item: viewModel.selection)
         }
