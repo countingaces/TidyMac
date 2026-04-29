@@ -37,12 +37,16 @@ final class CleaningService {
         case recycleFailed
         case cancelled
         case simctlFailed(String)
+        case systemProtected(String)
+        case finderTimeout(String)
 
         var errorDescription: String? {
             switch self {
             case .recycleFailed: return "macOS refused to move the item to Trash."
             case .cancelled:     return "Cleaning was cancelled."
             case .simctlFailed(let detail): return detail
+            case .systemProtected(let name): return "\(name) is on macOS's sealed system volume and is protected by System Integrity Protection. It can't be removed."
+            case .finderTimeout(let name): return "Finder didn't respond when asked to delete \(name) within 60 seconds. The admin authorization prompt may have been hidden behind another window."
             }
         }
     }
@@ -175,6 +179,14 @@ final class CleaningService {
             return
         }
 
+        // Anything under /System/ lives on the sealed system volume. SIP
+        // blocks deletion for any process — even with admin auth. Don't
+        // even try; Finder will just hang on a prompt that can't possibly
+        // succeed.
+        if Self.isSystemProtected(url) {
+            throw CleaningError.systemProtected(url.lastPathComponent)
+        }
+
         do {
             try await recycleViaWorkspace(url)
         } catch {
@@ -246,6 +258,12 @@ final class CleaningService {
         process.standardOutput = stdout
         process.standardError = stderr
 
+        // The admin-auth prompt Finder shows is a sheet on Finder, but the
+        // user's eyes are on TidyMac. Activate ourselves first so the user
+        // is reliably looking at the right window when the prompt appears
+        // — otherwise it can land hidden behind whatever else is frontmost.
+        await MainActor.run { NSApp.activate(ignoringOtherApps: true) }
+
         do {
             try process.run()
         } catch {
@@ -253,7 +271,27 @@ final class CleaningService {
                 "Couldn't launch osascript to retry via Finder: \(error.localizedDescription)"
             )
         }
-        process.waitUntilExit()
+
+        // Wait for osascript with a 60-second deadline. If the auth prompt
+        // gets dismissed/hidden and Finder never replies, killing the
+        // process keeps the rest of the cleaning queue from hanging
+        // indefinitely. Also poll cancellation so the Stop button works.
+        let deadline = Date().addingTimeInterval(60)
+        while process.isRunning {
+            if Task.isCancelled {
+                process.terminate()
+                _ = try? await Task.sleep(nanoseconds: 200_000_000)
+                if process.isRunning { process.interrupt() }
+                throw CleaningError.cancelled
+            }
+            if Date() >= deadline {
+                process.terminate()
+                _ = try? await Task.sleep(nanoseconds: 200_000_000)
+                if process.isRunning { process.interrupt() }
+                throw CleaningError.finderTimeout(url.lastPathComponent)
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
 
         // Source of truth: did the file actually go away?
         if !FileManager.default.fileExists(atPath: url.path) {
@@ -281,6 +319,11 @@ final class CleaningService {
             throw CleaningError.recycleFailed
         }
         throw CleaningError.simctlFailed("Finder couldn't move \(url.lastPathComponent) to Trash: \(combined)")
+    }
+
+    private static func isSystemProtected(_ url: URL) -> Bool {
+        let path = url.path
+        return path == "/System" || path.hasPrefix("/System/")
     }
 
     private static func isInTrash(_ url: URL) -> Bool {
