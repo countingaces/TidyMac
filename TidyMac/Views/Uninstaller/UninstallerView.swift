@@ -162,6 +162,9 @@ private struct LoadingView: View {
                     .stroke(theme.gradient, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     .frame(width: 80, height: 80)
                     .rotationEffect(.degrees(rotation))
+                Image(systemName: NavigationItem.uninstaller.symbolName)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(theme.gradient)
             }
             Text("Discovering installed apps…")
                 .font(.system(size: 14))
