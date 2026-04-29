@@ -18,6 +18,8 @@ final class OptimizationViewModel: ObservableObject {
     /// The view dims toggles for these to prevent double-clicks while the
     /// admin sheet is showing.
     @Published var pendingItemIds: Set<String> = []
+    /// Items checked for batch removal in the bottom action bar.
+    @Published var selectedRemovalIds: Set<String> = []
 
     let theme: ColorTheme = .optimization
     private let scanner = OptimizationScanner()
@@ -178,6 +180,7 @@ final class OptimizationViewModel: ObservableObject {
                 try FileManager.default.trashItem(at: plistURL, resultingItemURL: &trashed)
             }
             items.removeAll { $0.id == item.id }
+            selectedRemovalIds.remove(item.id)
         } catch MaintenanceError.authorizationCancelled {
             // No-op on user cancel.
         } catch {
@@ -198,6 +201,55 @@ final class OptimizationViewModel: ObservableObject {
         }
         guard !commands.isEmpty else { return }
         _ = try await runShellAsAdmin(commands.joined(separator: "; "))
+    }
+
+    // MARK: - Batch selection
+
+    func toggleSelection(id: String) {
+        if selectedRemovalIds.contains(id) {
+            selectedRemovalIds.remove(id)
+        } else {
+            selectedRemovalIds.insert(id)
+        }
+    }
+
+    func deselectAll() {
+        selectedRemovalIds.removeAll()
+    }
+
+    /// Bottom-bar Remove. Same admin-batching as removeAllBroken: non-
+    /// admin items trash one by one (no prompt), admin items get bundled
+    /// into a single elevated shell so the user authenticates once
+    /// regardless of how many root-owned plists they checked.
+    func removeSelected() {
+        let toRemove = items.filter { selectedRemovalIds.contains($0.id) }
+        let admin = toRemove.filter { $0.requiresAdmin }
+        let nonAdmin = toRemove.filter { !$0.requiresAdmin }
+
+        for item in nonAdmin {
+            removeItem(id: item.id)
+        }
+
+        if !admin.isEmpty {
+            let adminIds = admin.map(\.id)
+            for id in adminIds { pendingItemIds.insert(id) }
+            Task {
+                defer { adminIds.forEach { self.pendingItemIds.remove($0) } }
+                do {
+                    try await applyAdminRemove(items: admin)
+                    let removed = Set(adminIds)
+                    items.removeAll { removed.contains($0.id) }
+                    selectedRemovalIds.subtract(removed)
+                } catch MaintenanceError.authorizationCancelled {
+                    // No-op on user cancel.
+                } catch {
+                    alertMessage = "Couldn't remove items: \(error.localizedDescription)"
+                }
+            }
+        } else {
+            // Non-admin removals already cleared themselves; just sweep.
+            selectedRemovalIds.removeAll()
+        }
     }
 
     /// "Remove all broken" tool. Splits broken items into admin and non-

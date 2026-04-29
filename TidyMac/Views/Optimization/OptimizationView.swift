@@ -69,12 +69,74 @@ struct OptimizationView: View {
     }
 
     private var content: some View {
-        HStack(spacing: 0) {
-            CategoryList(viewModel: viewModel)
-                .frame(width: 220)
-            Divider()
-            DetailPane(viewModel: viewModel)
-                .frame(maxWidth: .infinity)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                CategoryList(viewModel: viewModel)
+                    .frame(width: 220)
+                Divider()
+                DetailPane(viewModel: viewModel)
+                    .frame(maxWidth: .infinity)
+            }
+            if !viewModel.selectedRemovalIds.isEmpty {
+                Divider()
+                BottomBar(viewModel: viewModel)
+            }
+        }
+    }
+}
+
+// MARK: - Bottom action bar
+
+private struct BottomBar: View {
+    @ObservedObject var viewModel: OptimizationViewModel
+    @State private var showConfirm = false
+
+    var body: some View {
+        let count = viewModel.selectedRemovalIds.count
+        HStack(spacing: 12) {
+            Button("Deselect All") {
+                viewModel.deselectAll()
+            }
+            .buttonStyle(.link)
+
+            Spacer()
+
+            Text("\(count) item\(count == 1 ? "" : "s") selected")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            Button {
+                showConfirm = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "trash")
+                    Text("Remove")
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.red.opacity(0.85))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .confirmationDialog(
+            "Remove \(count) startup item\(count == 1 ? "" : "s")?",
+            isPresented: $showConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                viewModel.removeSelected()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes the agent's plist file. User-owned plists go to the Trash; admin-owned ones are removed permanently after one password prompt.")
         }
     }
 }
@@ -296,7 +358,22 @@ private struct ItemRow: View {
     @State private var isHovered = false
 
     var body: some View {
+        let isSelectable = item.source != .runningProcess && item.plistURL != nil
         HStack(alignment: .top, spacing: 12) {
+            // Checkbox column. Live processes don't get one — there's nothing
+            // to remove, only to observe.
+            if isSelectable {
+                Toggle("", isOn: Binding(
+                    get: { viewModel.selectedRemovalIds.contains(item.id) },
+                    set: { _ in viewModel.toggleSelection(id: item.id) }
+                ))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .padding(.top, 6)
+            } else {
+                Color.clear.frame(width: 16, height: 16)
+            }
+
             iconView
                 .frame(width: 32, height: 32)
 
@@ -305,7 +382,6 @@ private struct ItemRow: View {
                     Text(item.name)
                         .font(.system(size: 13, weight: .semibold))
                         .lineLimit(1)
-                    StatusBadge(item: item)
                     if item.requiresAdmin {
                         Text("Admin required")
                             .font(.system(size: 9, weight: .semibold))
@@ -348,7 +424,7 @@ private struct ItemRow: View {
             if item.source == .runningProcess {
                 MetricsView(item: item)
             } else {
-                actionControls
+                statusPill
             }
         }
         .padding(.horizontal, 10)
@@ -380,46 +456,67 @@ private struct ItemRow: View {
         return parts.joined(separator: " · ")
     }
 
+    /// Status pill on the right edge that doubles as the enable/disable
+    /// toggle. Green Enabled → click → red Disabled → click → green Enabled.
+    /// Broken and Orphaned are non-clickable (no point "enabling" something
+    /// whose executable is gone — the user removes it via the bottom bar).
     @ViewBuilder
-    private var actionControls: some View {
+    private var statusPill: some View {
         let isPending = viewModel.pendingItemIds.contains(item.id)
-        VStack(alignment: .trailing, spacing: 4) {
-            if isPending {
-                ProgressView().controlSize(.small).scaleEffect(0.7)
-            } else if item.isIssue {
-                Button("Remove") {
-                    viewModel.removeItem(id: item.id)
-                }
+        if isPending {
+            ProgressView()
                 .controlSize(.small)
-            } else {
-                Toggle("", isOn: Binding(
-                    get: { item.isEnabled },
-                    set: { _ in viewModel.toggleItem(id: item.id) }
-                ))
-                .toggleStyle(.switch)
-                .labelsHidden()
-                .controlSize(.small)
+                .scaleEffect(0.7)
+                .frame(width: 80, alignment: .center)
+        } else {
+            StatusPill(item: item) {
+                viewModel.toggleItem(id: item.id)
             }
         }
     }
 }
 
-private struct StatusBadge: View {
+private struct StatusPill: View {
     let item: StartupItem
+    let onToggle: () -> Void
+    @State private var isHovered = false
+
+    private var canToggle: Bool {
+        !item.isExecutableMissing && !item.isParentAppMissing
+    }
+
     var body: some View {
-        let (label, color): (String, Color) = {
-            if item.isExecutableMissing { return ("Broken", .red) }
-            if item.isParentAppMissing { return ("Orphaned", .orange) }
-            if !item.isEnabled { return ("Disabled", .secondary) }
-            return ("Enabled", .green)
-        }()
-        Text(label)
-            .font(.system(size: 9, weight: .semibold))
-            .tracking(0.4)
+        if canToggle {
+            Button(action: onToggle) {
+                pillBody
+            }
+            .buttonStyle(.plain)
+            .onHover { isHovered = $0 }
+            .help(item.isEnabled ? "Click to disable" : "Click to enable")
+        } else {
+            pillBody
+        }
+    }
+
+    private var pillBody: some View {
+        let (label, color) = currentLabelAndColor
+        return Text(label)
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(0.3)
             .foregroundStyle(color)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(Capsule().fill(color.opacity(0.14)))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .frame(minWidth: 80)
+            .background(Capsule().fill(color.opacity(isHovered ? 0.24 : 0.16)))
+            .overlay(Capsule().stroke(color.opacity(0.35), lineWidth: 0.5))
+            .contentShape(Capsule())
+    }
+
+    private var currentLabelAndColor: (String, Color) {
+        if item.isExecutableMissing { return ("Broken", .red) }
+        if item.isParentAppMissing { return ("Orphaned", .orange) }
+        if item.isEnabled { return ("Enabled", .green) }
+        return ("Disabled", .red)
     }
 }
 
