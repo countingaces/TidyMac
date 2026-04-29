@@ -1,8 +1,6 @@
 import Foundation
 import SwiftUI
 
-// Step 2 stub — full implementation lands in Step 3 (Remnant Scanner).
-// Defined here so AppInfo's `remnants` property compiles.
 struct AppRemnant: Identifiable, Hashable {
     let id: UUID
     let path: URL
@@ -17,7 +15,7 @@ struct AppRemnant: Identifiable, Hashable {
         size: Int64,
         category: RemnantCategory,
         matchConfidence: MatchConfidence,
-        description: String
+        description: String = ""
     ) {
         self.id = id
         self.path = path
@@ -43,9 +41,53 @@ struct AppRemnant: Identifiable, Hashable {
         case other
 
         var id: String { rawValue }
-        var displayName: String { "" }
-        var icon: String { "doc" }
-        var safetyLevel: SafetyLevel { .safe }
+
+        var displayName: String {
+            switch self {
+            case .applicationSupport: return "Application Support"
+            case .container:          return "Container"
+            case .cache:              return "Cache"
+            case .preferences:        return "Preferences"
+            case .savedState:         return "Saved Application State"
+            case .logs:               return "Logs"
+            case .launchAgent:        return "Launch Agent"
+            case .loginItem:          return "Login Item"
+            case .cookies:            return "Cookies"
+            case .httpStorage:        return "HTTP Storage"
+            case .webkitData:         return "WebKit Data"
+            case .crashReports:       return "Crash Reports"
+            case .other:              return "Other"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .applicationSupport: return "folder.fill"
+            case .container:          return "shippingbox.fill"
+            case .cache:              return "internaldrive"
+            case .preferences:        return "slider.horizontal.3"
+            case .savedState:         return "clock.arrow.circlepath"
+            case .logs:               return "doc.text"
+            case .launchAgent:        return "gearshape.2.fill"
+            case .loginItem:          return "person.crop.circle.fill"
+            case .cookies:            return "circle.dashed"
+            case .httpStorage:        return "network"
+            case .webkitData:         return "globe"
+            case .crashReports:       return "exclamationmark.triangle"
+            case .other:              return "questionmark.folder"
+            }
+        }
+
+        var safetyLevel: SafetyLevel {
+            switch self {
+            case .cache, .savedState, .logs, .cookies,
+                 .httpStorage, .webkitData, .crashReports:
+                return .safe
+            case .applicationSupport, .container, .preferences,
+                 .launchAgent, .loginItem, .other:
+                return .cautious
+            }
+        }
     }
 
     enum MatchConfidence: Int, Comparable {
@@ -56,6 +98,28 @@ struct AppRemnant: Identifiable, Hashable {
 
         static func < (lhs: MatchConfidence, rhs: MatchConfidence) -> Bool {
             lhs.rawValue < rhs.rawValue
+        }
+
+        var label: String {
+            switch self {
+            case .exact:       return "Exact match"
+            case .prefixMatch: return "Bundle prefix"
+            case .nameMatch:   return "Probable match"
+            case .fuzzy:       return "Uncertain match"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .exact, .prefixMatch: return SafetyLevel.safe.color
+            case .nameMatch:           return SafetyLevel.cautious.color
+            case .fuzzy:               return SafetyLevel.risky.color
+            }
+        }
+
+        /// Pre-checked in the UI when the match is unambiguous.
+        var isAutoSelected: Bool {
+            self == .exact || self == .prefixMatch
         }
     }
 

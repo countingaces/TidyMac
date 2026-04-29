@@ -41,6 +41,7 @@
 		100000000000000000000112 /* AppInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000085 /* AppInfo.swift */; };
 		100000000000000000000113 /* AppRemnant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000086 /* AppRemnant.swift */; };
 		100000000000000000000114 /* AppDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000087 /* AppDiscoveryService.swift */; };
+		100000000000000000000115 /* RemnantScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000088 /* RemnantScanner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -80,6 +81,7 @@
 		100000000000000000000085 /* AppInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInfo.swift; sourceTree = "<group>"; };
 		100000000000000000000086 /* AppRemnant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRemnant.swift; sourceTree = "<group>"; };
 		100000000000000000000087 /* AppDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDiscoveryService.swift; sourceTree = "<group>"; };
+		100000000000000000000088 /* RemnantScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemnantScanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -210,6 +212,7 @@
 				100000000000000000000064 /* SystemJunkScanner.swift */,
 				100000000000000000000068 /* CleaningService.swift */,
 				100000000000000000000087 /* AppDiscoveryService.swift */,
+				100000000000000000000088 /* RemnantScanner.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -325,6 +328,7 @@
 				100000000000000000000112 /* AppInfo.swift in Sources */,
 				100000000000000000000113 /* AppRemnant.swift in Sources */,
 				100000000000000000000114 /* AppDiscoveryService.swift in Sources */,
+				100000000000000000000115 /* RemnantScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
