@@ -111,6 +111,13 @@ private struct SidebarItemRow: View {
                 }
 
                 Spacer(minLength: 0)
+
+                // Smart Scan gets a distinct health-score pill (grade
+                // color, not the theme color) since the score is the
+                // headline metric of the entire app.
+                if item == .smartScan, let score = appState.healthScore {
+                    HealthScoreBadge(score: score)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
@@ -144,6 +151,20 @@ private struct SidebarItemRow: View {
         } else {
             Color.clear
         }
+    }
+}
+
+private struct HealthScoreBadge: View {
+    let score: HealthScore
+    var body: some View {
+        Text("\(score.overall)")
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(score.grade.color))
+            .help("\(score.grade.label) — \(score.headline)")
     }
 }
 

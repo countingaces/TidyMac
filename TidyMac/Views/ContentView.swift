@@ -23,6 +23,8 @@ struct ContentView: View {
     @ViewBuilder
     private var mainContent: some View {
         switch appState.selection {
+        case .smartScan:
+            SmartScanView()
         case .spaceLens:
             SpaceLensView()
         case .systemJunk:
