@@ -57,6 +57,8 @@
 		100000000000000000000152 /* HealthScoreCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000145 /* HealthScoreCalculator.swift */; };
 		100000000000000000000160 /* SmartScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000146 /* SmartScanViewModel.swift */; };
 		100000000000000000000161 /* SmartScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000147 /* SmartScanView.swift */; };
+		100000000000000000000170 /* SystemMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000162 /* SystemMonitor.swift */; };
+		100000000000000000000171 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000163 /* MenuBarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -112,6 +114,8 @@
 		100000000000000000000145 /* HealthScoreCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthScoreCalculator.swift; sourceTree = "<group>"; };
 		100000000000000000000146 /* SmartScanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartScanViewModel.swift; sourceTree = "<group>"; };
 		100000000000000000000147 /* SmartScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartScanView.swift; sourceTree = "<group>"; };
+		100000000000000000000162 /* SystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMonitor.swift; sourceTree = "<group>"; };
+		100000000000000000000163 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -190,9 +194,18 @@
 				100000000000000000000128 /* Optimization */,
 				100000000000000000000137 /* Maintenance */,
 				100000000000000000000148 /* SmartScan */,
+				100000000000000000000164 /* MenuBar */,
 				100000000000000000000069 /* Shared */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		100000000000000000000164 /* MenuBar */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000163 /* MenuBarView.swift */,
+			);
+			path = MenuBar;
 			sourceTree = "<group>";
 		};
 		100000000000000000000148 /* SmartScan */ = {
@@ -290,6 +303,7 @@
 				100000000000000000000134 /* MaintenanceTasks.swift */,
 				100000000000000000000143 /* SmartScanOrchestrator.swift */,
 				100000000000000000000145 /* HealthScoreCalculator.swift */,
+				100000000000000000000162 /* SystemMonitor.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -421,6 +435,8 @@
 				100000000000000000000152 /* HealthScoreCalculator.swift in Sources */,
 				100000000000000000000160 /* SmartScanViewModel.swift in Sources */,
 				100000000000000000000161 /* SmartScanView.swift in Sources */,
+				100000000000000000000170 /* SystemMonitor.swift in Sources */,
+				100000000000000000000171 /* MenuBarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

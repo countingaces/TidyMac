@@ -19,5 +19,6 @@ final class AppState: ObservableObject {
     enum PendingAction: Equatable {
         case disableNonEssentialAgents
         case runMaintenanceTasks
+        case runSmartScan
     }
 }

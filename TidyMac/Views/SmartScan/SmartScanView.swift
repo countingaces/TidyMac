@@ -28,7 +28,22 @@ struct SmartScanView: View {
         .onChange(of: viewModel.results) { _, _ in
             publishToAppState()
         }
-        .onAppear { publishToAppState() }
+        .onChange(of: appState.pendingAction) { _, _ in
+            handlePendingActionIfReady()
+        }
+        .onAppear {
+            publishToAppState()
+            handlePendingActionIfReady()
+        }
+    }
+
+    private func handlePendingActionIfReady() {
+        guard appState.pendingAction == .runSmartScan else { return }
+        appState.pendingAction = nil
+        Task {
+            if maintenanceVM.tasks.isEmpty { await maintenanceVM.load() }
+            viewModel.startScan(maintenanceLastRunDates: maintenanceVM.lastRunDates)
+        }
     }
 
     private func publishToAppState() {
