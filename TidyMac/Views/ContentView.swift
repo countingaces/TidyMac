@@ -27,6 +27,8 @@ struct ContentView: View {
             SpaceLensView()
         case .systemJunk:
             SystemJunkView()
+        case .uninstaller:
+            UninstallerView()
         default:
             PlaceholderView(item: viewModel.selection)
         }

@@ -6,6 +6,7 @@ struct UninstallerView: View {
     @EnvironmentObject private var appState: AppState
     @State private var showConfirmation = false
     @State private var detailAppId: String?
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         Group {
@@ -68,6 +69,26 @@ struct UninstallerView: View {
         } message: {
             Text(confirmationMessage)
         }
+        .alert(
+            "Uninstaller",
+            isPresented: Binding(
+                get: { viewModel.alertMessage != nil },
+                set: { if !$0 { viewModel.alertMessage = nil } }
+            ),
+            presenting: viewModel.alertMessage
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { msg in
+            Text(msg)
+        }
+        // Cmd+F focuses the search field. Hidden button so keyboardShortcut
+        // is wired into the view hierarchy without showing UI.
+        .background {
+            Button("Focus Search") { searchFocused = true }
+                .keyboardShortcut("f", modifiers: .command)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+        }
     }
 
     @ViewBuilder
@@ -79,7 +100,7 @@ struct UninstallerView: View {
             ErrorView(message: message)
         case .loaded:
             VStack(spacing: 0) {
-                Toolbar(viewModel: viewModel)
+                Toolbar(viewModel: viewModel, searchFocused: $searchFocused)
                 Divider()
                 AppList(
                     viewModel: viewModel,
@@ -176,6 +197,7 @@ private struct ErrorView: View {
 
 private struct Toolbar: View {
     @ObservedObject var viewModel: UninstallerViewModel
+    var searchFocused: FocusState<Bool>.Binding
 
     var body: some View {
         VStack(spacing: 10) {
@@ -185,6 +207,7 @@ private struct Toolbar: View {
                 TextField("Search apps", text: $viewModel.searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
+                    .focused(searchFocused)
                 if !viewModel.searchText.isEmpty {
                     Button {
                         viewModel.searchText = ""
@@ -410,14 +433,24 @@ private struct AppRow: View {
     var body: some View {
         let isSelected = viewModel.selectedAppIds.contains(app.id)
         let theme = viewModel.moduleInfo.colorTheme
+        let eligibility = viewModel.eligibility(for: app)
+        let isBlocked = eligibility.isBlocked
 
         HStack(spacing: 10) {
-            Toggle("", isOn: Binding(
-                get: { isSelected },
-                set: { _ in viewModel.toggleApp(id: app.id) }
-            ))
-            .toggleStyle(.checkbox)
-            .labelsHidden()
+            if isBlocked {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 18)
+                    .help(blockedReason(eligibility))
+            } else {
+                Toggle("", isOn: Binding(
+                    get: { isSelected },
+                    set: { _ in viewModel.toggleApp(id: app.id) }
+                ))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+            }
 
             Image(nsImage: app.icon)
                 .resizable()
@@ -462,6 +495,11 @@ private struct AppRow: View {
         if viewModel.selectedAppIds.contains(app.id) { return theme.primary.opacity(0.10) }
         if isHovered { return Color.primary.opacity(0.04) }
         return .clear
+    }
+
+    private func blockedReason(_ eligibility: UninstallerViewModel.UninstallEligibility) -> String {
+        if case .blocked(let reason) = eligibility { return reason }
+        return "Protected"
     }
 
     private var lastUsedText: String {

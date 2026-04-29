@@ -45,6 +45,20 @@ final class UninstallerViewModel: ObservableObject {
         case finished(CleaningService.CleaningResult)
     }
 
+    /// Result of evaluating whether an app can be uninstalled. Carries the
+    /// reason in the blocked case so the UI can surface a human-readable
+    /// message instead of silently doing nothing.
+    enum UninstallEligibility: Equatable {
+        case eligible
+        case blocked(reason: String)
+        case requiresQuit(appName: String)
+
+        var isBlocked: Bool {
+            if case .blocked = self { return true }
+            return false
+        }
+    }
+
     let moduleInfo = ModuleInfo(
         id: "uninstaller",
         title: "Uninstaller",
@@ -233,9 +247,29 @@ final class UninstallerViewModel: ObservableObject {
     func toggleApp(id: String) {
         if selectedAppIds.contains(id) {
             selectedAppIds.remove(id)
-        } else {
+            return
+        }
+        guard let app = apps.first(where: { $0.id == id }) else { return }
+        switch eligibility(for: app) {
+        case .blocked(let reason):
+            alertMessage = reason
+        case .eligible, .requiresQuit:
             selectedAppIds.insert(id)
         }
+    }
+
+    /// Guard pattern — returns why an app can or can't be uninstalled.
+    func eligibility(for app: AppInfo) -> UninstallEligibility {
+        if app.id == Bundle.main.bundleIdentifier {
+            return .blocked(reason: "TidyMac can't uninstall itself. That'd be a paradox.")
+        }
+        if app.id.hasPrefix("com.apple.") || app.category == .appleBuiltIn {
+            return .blocked(reason: "\(app.name) is part of macOS and is protected by the system. It can't be removed.")
+        }
+        if NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == app.id }) {
+            return .requiresQuit(appName: app.name)
+        }
+        return .eligible
     }
 
     func toggleRemnant(id: UUID, for appId: String) {
