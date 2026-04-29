@@ -5,8 +5,7 @@ import ServiceManagement
 struct MenuBarView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var monitor = SystemMonitor()
-    @AppStorage("TidyMac.LaunchAtLogin") private var launchAtLogin = false
-    @Environment(\.openWindow) private var openWindow
+    @State private var launchAtLogin: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -22,7 +21,12 @@ struct MenuBarView: View {
         .frame(width: 280)
         .onAppear {
             monitor.start(every: 5)
-            syncLaunchAtLoginFromSystem()
+            // SMAppService is the source of truth for the toggle; sync
+            // once on appear without writing through AppStorage (which
+            // can cause SwiftUI scene-update loops).
+            if #available(macOS 13.0, *) {
+                launchAtLogin = SMAppService.mainApp.status == .enabled
+            }
         }
         .onDisappear {
             monitor.stop()
@@ -146,14 +150,13 @@ struct MenuBarView: View {
     }
 
     private func showMainWindow() {
-        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        // If there's already a main window, bring it forward; otherwise
-        // open a new one through SwiftUI's window scene.
-        if let window = NSApp.windows.first(where: { $0.title == "TidyMac" || !$0.title.isEmpty }) {
+        // Find the main app window and bring it forward. If somehow there
+        // isn't one (user closed everything), the dock icon click handler
+        // in AppDelegate will re-spawn the WindowGroup's window.
+        for window in NSApp.windows where window.canBecomeMain {
             window.makeKeyAndOrderFront(nil)
-        } else {
-            openWindow(id: "main")
+            return
         }
     }
 
@@ -182,15 +185,6 @@ struct MenuBarView: View {
     }
 
     // MARK: - SMAppService bridge
-
-    private func syncLaunchAtLoginFromSystem() {
-        // Truth source is SMAppService — AppStorage just mirrors the user's
-        // last toggle. Reconcile them on appear in case the system state
-        // diverged (user removed via System Settings, etc.).
-        if #available(macOS 13.0, *) {
-            launchAtLogin = SMAppService.mainApp.status == .enabled
-        }
-    }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
         guard #available(macOS 13.0, *) else { return }

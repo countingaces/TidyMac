@@ -5,10 +5,9 @@ import AppKit
 struct TidyMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState = AppState()
-    @AppStorage("TidyMac.KeepInMenuBar") private var keepInMenuBar = true
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        WindowGroup {
             ContentView()
                 .environmentObject(appState)
                 .frame(
@@ -46,7 +45,7 @@ struct TidyMacApp: App {
             }
         }
 
-        MenuBarExtra("TidyMac", systemImage: "sparkles", isInserted: $keepInMenuBar) {
+        MenuBarExtra("TidyMac", systemImage: "sparkles") {
             MenuBarView()
                 .environmentObject(appState)
         }
