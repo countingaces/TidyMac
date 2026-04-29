@@ -91,6 +91,19 @@ private struct BottomBar: View {
     @ObservedObject var viewModel: OptimizationViewModel
     @State private var showConfirm = false
 
+    /// Mode of the bottom bar — derived from which category the selected
+    /// items live in. Force Quit kills running processes; Remove deletes
+    /// agent plists. Mixing them in one batch isn't possible because the
+    /// view only shows one category at a time.
+    private enum Mode {
+        case removeAgents
+        case forceQuitApps
+    }
+
+    private var mode: Mode {
+        viewModel.selectedCategory == .hungApps ? .forceQuitApps : .removeAgents
+    }
+
     var body: some View {
         let count = viewModel.selectedRemovalIds.count
         HStack(spacing: 12) {
@@ -109,8 +122,8 @@ private struct BottomBar: View {
                 showConfirm = true
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "trash")
-                    Text("Remove")
+                    Image(systemName: actionIcon)
+                    Text(actionLabel)
                 }
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
@@ -127,16 +140,51 @@ private struct BottomBar: View {
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
         .confirmationDialog(
-            "Remove \(count) startup item\(count == 1 ? "" : "s")?",
+            confirmTitle(count: count),
             isPresented: $showConfirm,
             titleVisibility: .visible
         ) {
-            Button("Remove", role: .destructive) {
-                viewModel.removeSelected()
+            Button(actionLabel, role: .destructive) {
+                switch mode {
+                case .removeAgents: viewModel.removeSelected()
+                case .forceQuitApps: viewModel.forceQuitSelected()
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This deletes the agent's plist file. User-owned plists go to the Trash; admin-owned ones are removed permanently after one password prompt.")
+            Text(confirmMessage)
+        }
+    }
+
+    private var actionLabel: String {
+        switch mode {
+        case .removeAgents: return "Remove"
+        case .forceQuitApps: return "Force Quit"
+        }
+    }
+
+    private var actionIcon: String {
+        switch mode {
+        case .removeAgents: return "trash"
+        case .forceQuitApps: return "xmark.octagon.fill"
+        }
+    }
+
+    private func confirmTitle(count: Int) -> String {
+        switch mode {
+        case .removeAgents:
+            return "Remove \(count) startup item\(count == 1 ? "" : "s")?"
+        case .forceQuitApps:
+            return "Force Quit \(count) application\(count == 1 ? "" : "s")?"
+        }
+    }
+
+    private var confirmMessage: String {
+        switch mode {
+        case .removeAgents:
+            return "This deletes the agent's plist file. User-owned plists go to the Trash; admin-owned ones are removed permanently after one password prompt."
+        case .forceQuitApps:
+            return "Force quitting kills the application immediately. Any unsaved work in those apps will be lost."
         }
     }
 }
@@ -284,14 +332,14 @@ private struct Header: View {
 
             Spacer()
 
-            if category == .heavyConsumers {
+            if category == .hungApps {
                 Button {
-                    Task { await viewModel.refreshHeavyConsumers() }
+                    Task { await viewModel.refreshHungApps() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
-                .help("Refresh process list")
+                .help("Re-check for unresponsive apps")
             }
 
             if category == .launchAgents && viewModel.brokenAgentCount > 0 {
@@ -311,8 +359,8 @@ private struct Header: View {
             return "Apps set to open at login"
         case .launchAgents:
             return "Background helpers managed by launchd"
-        case .heavyConsumers:
-            return "Live snapshot of CPU and memory usage"
+        case .hungApps:
+            return "Apps that have stopped responding to events"
         }
     }
 }
@@ -343,8 +391,8 @@ private struct EmptyState: View {
             return "Login items registered through System Settings → General → Login Items aren't listed here. Apps that auto-launch typically install a Launch Agent — check that tab."
         case .launchAgents:
             return "No third-party Launch Agents found in ~/Library/LaunchAgents or /Library/LaunchAgents."
-        case .heavyConsumers:
-            return "Couldn't read process list."
+        case .hungApps:
+            return "Nothing's hung. Your applications are all responding to events. Hit the refresh button to check again."
         }
     }
 }
@@ -358,10 +406,10 @@ private struct ItemRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        let isSelectable = item.source != .runningProcess && item.plistURL != nil
+        let isSelectable = item.plistURL != nil || item.type == .hungApp
         HStack(alignment: .top, spacing: 12) {
-            // Checkbox column. Live processes don't get one — there's nothing
-            // to remove, only to observe.
+            // Checkbox column. Skipped for items the bottom-bar action
+            // can't actually act on.
             if isSelectable {
                 Toggle("", isOn: Binding(
                     get: { viewModel.selectedRemovalIds.contains(item.id) },
@@ -421,11 +469,7 @@ private struct ItemRow: View {
 
             Spacer(minLength: 8)
 
-            if item.source == .runningProcess {
-                MetricsView(item: item)
-            } else {
-                statusPill
-            }
+            statusPill
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -482,7 +526,7 @@ private struct StatusPill: View {
     @State private var isHovered = false
 
     private var canToggle: Bool {
-        !item.isExecutableMissing && !item.isParentAppMissing
+        !item.isExecutableMissing && !item.isParentAppMissing && item.type != .hungApp
     }
 
     var body: some View {
@@ -513,29 +557,11 @@ private struct StatusPill: View {
     }
 
     private var currentLabelAndColor: (String, Color) {
+        if item.type == .hungApp { return ("Not Responding", .red) }
         if item.isExecutableMissing { return ("Broken", .red) }
         if item.isParentAppMissing { return ("Orphaned", .orange) }
         if item.isEnabled { return ("Enabled", .green) }
         return ("Disabled", .red)
-    }
-}
-
-private struct MetricsView: View {
-    let item: StartupItem
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            if let cpu = item.cpuPercent {
-                Text("\(cpu, specifier: "%.1f")% CPU")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-            }
-            if let mem = item.memoryMB {
-                Text("\(mem, specifier: "%.0f") MB")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(minWidth: 90, alignment: .trailing)
     }
 }
 

@@ -1,6 +1,29 @@
 import Foundation
 import AppKit
+import Darwin
 import ServiceManagement
+
+/// Resolves CGSGetIsProcessUnresponsive at runtime via dlsym so we don't
+/// link against private symbols at build time. Returns nil on macOS
+/// versions where Apple has renamed or removed the SPI — in that case
+/// we just report no hung apps rather than crashing or false-positive-ing.
+private enum HungProcessSPI {
+    typealias Fn = @convention(c) (pid_t) -> Int32
+
+    static let detect: Fn? = {
+        let frameworks = [
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+            "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+        ]
+        for path in frameworks {
+            guard let handle = dlopen(path, RTLD_LAZY) else { continue }
+            if let raw = dlsym(handle, "CGSGetIsProcessUnresponsive") {
+                return unsafeBitCast(raw, to: Fn.self)
+            }
+        }
+        return nil
+    }()
+}
 
 /// Inspects everything macOS auto-starts: Launch Agents (user + system),
 /// Login Items registered via SMAppService, and a live snapshot of the
@@ -14,9 +37,9 @@ struct OptimizationScanner: Sendable {
         async let systemAgents = scanLaunchAgents(at: systemAgentsURL, source: .systemLaunchAgent)
         async let systemDaemons = scanLaunchAgents(at: systemDaemonsURL, source: .systemLaunchDaemon)
         async let loginItems = scanLoginItems()
-        async let heavy = scanHeavyConsumers()
+        async let hung = scanHungApps()
 
-        return await userAgents + systemAgents + systemDaemons + loginItems + heavy
+        return await userAgents + systemAgents + systemDaemons + loginItems + hung
     }
 
     private var userAgentsURL: URL {
@@ -116,8 +139,7 @@ struct OptimizationScanner: Sendable {
             runAtLoad: runAtLoad,
             requiresAdmin: source == .systemLaunchAgent || source == .systemLaunchDaemon,
             plistURL: plistURL,
-            cpuPercent: nil,
-            memoryMB: nil
+            processIdentifier: nil
         )
     }
 
@@ -223,87 +245,61 @@ struct OptimizationScanner: Sendable {
                 runAtLoad: true,
                 requiresAdmin: false,
                 plistURL: nil,
-                cpuPercent: nil,
-                memoryMB: nil
+                processIdentifier: nil
             )]
         }
         return []
     }
 
-    // MARK: - Heavy Consumers
+    // MARK: - Hung Applications
 
-    /// Live snapshot via `ps -axo pid,%cpu,%mem,rss,comm`. Returns the top
-    /// 10 by combined (CPU + memory) load — pure CPU sort puts kernel_task
-    /// at the top forever; pure memory sort buries fast-but-spiky offenders.
-    private func scanHeavyConsumers() async -> [StartupItem] {
-        guard let output = runPS() else { return [] }
-        let lines = output.split(separator: "\n").dropFirst() // drop header
+    /// Walks NSWorkspace's running applications and asks the WindowServer
+    /// (via private CGS SPI) which ones have stopped pumping events. Only
+    /// considers .regular GUI apps owned by the current user — system
+    /// daemons and other users' processes aren't ours to kill.
+    private func scanHungApps() async -> [StartupItem] {
+        guard let detect = HungProcessSPI.detect else { return [] }
 
-        struct Row { let pid: Int; let cpu: Double; let mem: Double; let rss: Double; let comm: String }
-        var rows: [Row] = []
-
-        for raw in lines {
-            // PID %CPU %MEM   RSS COMM
-            let parts = raw.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
-            guard parts.count >= 5,
-                  let pid = Int(parts[0]),
-                  let cpu = Double(parts[1]),
-                  let mem = Double(parts[2]),
-                  let rss = Double(parts[3])
-            else { continue }
-            let comm = parts.dropFirst(4).joined(separator: " ")
-            rows.append(Row(pid: pid, cpu: cpu, mem: mem, rss: rss, comm: comm))
+        let me = getuid()
+        let candidates = NSWorkspace.shared.runningApplications.filter { app in
+            app.activationPolicy == .regular &&
+            app.processIdentifier > 0 &&
+            !app.isTerminated &&
+            ownerUID(of: app.processIdentifier) == me
         }
 
-        let top = rows
-            .sorted { ($0.cpu + $0.mem) > ($1.cpu + $1.mem) }
-            .prefix(10)
-
-        return top.map { row in
-            let exeURL = URL(fileURLWithPath: row.comm)
-            let displayName = exeURL.lastPathComponent
-            // RSS is in KB on Darwin's ps; convert to MB.
-            let memMB = row.rss / 1024
+        return candidates.compactMap { app -> StartupItem? in
+            guard detect(app.processIdentifier) != 0 else { return nil }
+            let bundleURL = app.bundleURL
+            let displayName = app.localizedName ?? bundleURL?.deletingPathExtension().lastPathComponent ?? "Unknown"
             return StartupItem(
-                id: "process::\(row.pid)",
+                id: "hung::\(app.processIdentifier)",
                 name: displayName,
-                type: .heavyConsumer,
-                source: .runningProcess,
-                executablePath: exeURL,
-                parentAppBundleId: nil,
-                icon: iconForExecutable(exeURL),
-                isEnabled: true,
+                type: .hungApp,
+                source: .runningApp,
+                executablePath: app.executableURL ?? bundleURL,
+                parentAppBundleId: app.bundleIdentifier,
+                icon: app.icon,
+                isEnabled: false,
                 isExecutableMissing: false,
                 isParentAppMissing: false,
                 keepAlive: false,
                 runAtLoad: false,
                 requiresAdmin: false,
                 plistURL: nil,
-                cpuPercent: row.cpu,
-                memoryMB: memMB
+                processIdentifier: app.processIdentifier
             )
         }
     }
 
-    private func runPS() -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-axo", "pid,%cpu,%mem,rss,comm"]
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = Pipe()
-        do {
-            try process.run()
-        } catch {
-            return nil
-        }
-        // Drain the pipe BEFORE waiting for exit. ps on a busy Mac produces
-        // more than the pipe's ~64 KB buffer, so the child blocks writing
-        // while we wait for it to terminate — classic deadlock. readData­
-        // ToEndOfFile() returns when the child closes its stdout (on exit),
-        // so the subsequent waitUntilExit returns immediately.
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return String(data: data, encoding: .utf8)
+    /// proc_pidinfo PROC_PIDTBSDINFO gives us the BSD-level process info
+    /// including the real UID. Returns -1 if the call fails (process gone,
+    /// permissions, etc.) so the caller's "is mine?" check just rejects it.
+    private func ownerUID(of pid: pid_t) -> uid_t {
+        var info = proc_bsdinfo()
+        let size = MemoryLayout<proc_bsdinfo>.size
+        let result = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(size))
+        guard result == Int32(size) else { return uid_t.max }
+        return info.pbi_uid
     }
 }

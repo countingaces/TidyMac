@@ -52,22 +52,46 @@ final class OptimizationViewModel: ObservableObject {
         loadState = .loaded
     }
 
-    func refreshHeavyConsumers() async {
+    func refreshHungApps() async {
         let scanner = OptimizationScanner()
         let fresh = await scanner.scan()
-        // Replace only the running-process rows; keep agents/login items
-        // unchanged so the user's selection state isn't reset.
-        items.removeAll { $0.source == .runningProcess }
-        items.append(contentsOf: fresh.filter { $0.source == .runningProcess })
+        // Replace only the hung-app rows; keep agents/login items unchanged
+        // so the user's selection state on those isn't reset.
+        items.removeAll { $0.type == .hungApp }
+        items.append(contentsOf: fresh.filter { $0.type == .hungApp })
+    }
+
+    /// Force Quit the apps the user has checked in the Hung Applications
+    /// tab. Uses NSRunningApplication.forceTerminate (SIGKILL after a
+    /// short polite SIGTERM grace period) — works without admin since
+    /// scanHungApps already filters to processes owned by the current user.
+    func forceQuitSelected() {
+        let toKill = items.filter {
+            selectedRemovalIds.contains($0.id) && $0.type == .hungApp
+        }
+        guard !toKill.isEmpty else { return }
+
+        for item in toKill {
+            guard let pid = item.processIdentifier,
+                  let app = NSRunningApplication(processIdentifier: pid)
+            else { continue }
+            app.forceTerminate()
+        }
+
+        // Optimistically drop the killed rows. The next refresh will
+        // confirm they're gone (or surface them again if they survived).
+        let killedIds = Set(toKill.map(\.id))
+        items.removeAll { killedIds.contains($0.id) }
+        selectedRemovalIds.subtract(killedIds)
     }
 
     // MARK: - Toggle (enable/disable)
 
     func toggleItem(id: String) {
         guard let item = items.first(where: { $0.id == id }) else { return }
-        // Heavy consumers are live processes, not configured services —
-        // toggle is hidden for them in the UI but guard here too.
-        guard item.source != .runningProcess else { return }
+        // Hung apps don't have a plist to toggle — they're force-quit, not
+        // disabled. Guard here even though the UI hides the toggle for them.
+        guard item.type != .hungApp else { return }
         guard item.plistURL != nil else { return }
         guard !pendingItemIds.contains(id) else { return }
 
@@ -384,8 +408,7 @@ final class OptimizationViewModel: ObservableObject {
             runAtLoad: item.runAtLoad,
             requiresAdmin: item.requiresAdmin,
             plistURL: item.plistURL,
-            cpuPercent: item.cpuPercent,
-            memoryMB: item.memoryMB
+            processIdentifier: item.processIdentifier
         )
     }
 }
