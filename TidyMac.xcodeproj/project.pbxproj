@@ -42,6 +42,9 @@
 		100000000000000000000113 /* AppRemnant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000086 /* AppRemnant.swift */; };
 		100000000000000000000114 /* AppDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000087 /* AppDiscoveryService.swift */; };
 		100000000000000000000115 /* RemnantScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000088 /* RemnantScanner.swift */; };
+		100000000000000000000116 /* UninstallerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000089 /* UninstallerViewModel.swift */; };
+		100000000000000000000117 /* UninstallerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000120 /* UninstallerView.swift */; };
+		100000000000000000000118 /* AppDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000121 /* AppDetailSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -82,6 +85,9 @@
 		100000000000000000000086 /* AppRemnant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRemnant.swift; sourceTree = "<group>"; };
 		100000000000000000000087 /* AppDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDiscoveryService.swift; sourceTree = "<group>"; };
 		100000000000000000000088 /* RemnantScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemnantScanner.swift; sourceTree = "<group>"; };
+		100000000000000000000089 /* UninstallerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerViewModel.swift; sourceTree = "<group>"; };
+		100000000000000000000120 /* UninstallerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerView.swift; sourceTree = "<group>"; };
+		100000000000000000000121 /* AppDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDetailSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,6 +145,7 @@
 				100000000000000000000023 /* AppViewModel.swift */,
 				100000000000000000000052 /* SpaceLensViewModel.swift */,
 				100000000000000000000065 /* SystemJunkViewModel.swift */,
+				100000000000000000000089 /* UninstallerViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -151,9 +158,19 @@
 				100000000000000000000026 /* PlaceholderView.swift */,
 				100000000000000000000053 /* SpaceLens */,
 				100000000000000000000067 /* SystemJunk */,
+				100000000000000000000122 /* Uninstaller */,
 				100000000000000000000069 /* Shared */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		100000000000000000000122 /* Uninstaller */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000120 /* UninstallerView.swift */,
+				100000000000000000000121 /* AppDetailSheet.swift */,
+			);
+			path = Uninstaller;
 			sourceTree = "<group>";
 		};
 		100000000000000000000069 /* Shared */ = {
@@ -329,6 +346,9 @@
 				100000000000000000000113 /* AppRemnant.swift in Sources */,
 				100000000000000000000114 /* AppDiscoveryService.swift in Sources */,
 				100000000000000000000115 /* RemnantScanner.swift in Sources */,
+				100000000000000000000116 /* UninstallerViewModel.swift in Sources */,
+				100000000000000000000117 /* UninstallerView.swift in Sources */,
+				100000000000000000000118 /* AppDetailSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

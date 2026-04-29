@@ -12,7 +12,7 @@ enum ColorTheme {
         case .smartScan: return Color(red: 0.31, green: 0.55, blue: 0.95)
         case .cleanup: return Color(red: 0.58, green: 0.42, blue: 0.92)
         case .speed: return Color(red: 0.36, green: 0.78, blue: 0.55)
-        case .applications: return Color(red: 0.78, green: 0.36, blue: 0.72)
+        case .applications: return Color(red: 0.23, green: 0.51, blue: 0.96)
         case .storage: return Color(red: 0.46, green: 0.42, blue: 0.92)
         }
     }
@@ -22,7 +22,7 @@ enum ColorTheme {
         case .smartScan: return Color(red: 0.52, green: 0.76, blue: 0.98)
         case .cleanup: return Color(red: 0.74, green: 0.58, blue: 0.96)
         case .speed: return Color(red: 0.55, green: 0.88, blue: 0.70)
-        case .applications: return Color(red: 0.92, green: 0.55, blue: 0.86)
+        case .applications: return Color(red: 0.46, green: 0.66, blue: 0.99)
         case .storage: return Color(red: 0.62, green: 0.58, blue: 0.98)
         }
     }
