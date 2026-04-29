@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SwiftUI
 
 @MainActor
@@ -14,10 +15,21 @@ final class SmartScanViewModel: ObservableObject {
 
     private let cleaningService = CleaningService()
     private var cleaningTask: Task<Void, Never>?
+    /// Subscriptions that forward nested ObservableObjects' updates so
+    /// SwiftUI re-renders this view model's observers.
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         self.orchestrator = SmartScanOrchestrator()
         orchestrator.loadPersisted()
+        // Forward orchestrator's @Published changes so SmartScanView
+        // (which only directly observes `viewModel`) re-renders when
+        // overallState / moduleStates / results change. Without this,
+        // clicking Scan sets state on the orchestrator but the view
+        // never sees the transition out of .idle.
+        orchestrator.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 
     // MARK: - Convenience for the view
