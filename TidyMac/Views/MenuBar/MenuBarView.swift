@@ -6,6 +6,7 @@ struct MenuBarView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var monitor = SystemMonitor()
     @State private var launchAtLogin: Bool = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -21,11 +22,15 @@ struct MenuBarView: View {
         .frame(width: 280)
         .onAppear {
             monitor.start(every: 5)
-            // SMAppService is the source of truth for the toggle; sync
-            // once on appear without writing through AppStorage (which
-            // can cause SwiftUI scene-update loops).
-            if #available(macOS 13.0, *) {
-                launchAtLogin = SMAppService.mainApp.status == .enabled
+            // SMAppService.status talks to backgroundtaskmanagementd via
+            // XPC — fast in the common case but can stall the main
+            // thread enough to beachball the popover. Pull it on a
+            // detached task and write back to @State on main when it
+            // returns.
+            Task.detached(priority: .userInitiated) {
+                guard #available(macOS 13.0, *) else { return }
+                let isEnabled = SMAppService.mainApp.status == .enabled
+                await MainActor.run { launchAtLogin = isEnabled }
             }
         }
         .onDisappear {
@@ -151,13 +156,10 @@ struct MenuBarView: View {
 
     private func showMainWindow() {
         NSApp.activate(ignoringOtherApps: true)
-        // Find the main app window and bring it forward. If somehow there
-        // isn't one (user closed everything), the dock icon click handler
-        // in AppDelegate will re-spawn the WindowGroup's window.
-        for window in NSApp.windows where window.canBecomeMain {
-            window.makeKeyAndOrderFront(nil)
-            return
-        }
+        // The Window scene auto-creates one window we can address by id.
+        // openWindow surfaces it whether it's hidden, miniaturised, or
+        // already frontmost — handles every "show me the window" case.
+        openWindow(id: "main")
     }
 
     // MARK: - Footer

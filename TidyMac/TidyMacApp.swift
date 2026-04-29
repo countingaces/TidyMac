@@ -7,7 +7,12 @@ struct TidyMacApp: App {
     @StateObject private var appState = AppState()
 
     var body: some Scene {
-        WindowGroup {
+        // Single-instance Window (not WindowGroup) so closing the window
+        // hides it instead of tearing down the SwiftUI content. With
+        // WindowGroup, closing destroys the view tree, and subsequent
+        // MenuBarExtra popover opens beachball trying to reconcile a
+        // partially-dead scene graph.
+        Window("TidyMac", id: "main") {
             ContentView()
                 .environmentObject(appState)
                 .frame(
