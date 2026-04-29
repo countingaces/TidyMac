@@ -46,6 +46,10 @@
 		100000000000000000000117 /* UninstallerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000120 /* UninstallerView.swift */; };
 		100000000000000000000118 /* AppDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000121 /* AppDetailSheet.swift */; };
 		100000000000000000000119 /* OrphanDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000123 /* OrphanDetector.swift */; };
+		100000000000000000000130 /* StartupItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000124 /* StartupItem.swift */; };
+		100000000000000000000131 /* OptimizationScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000125 /* OptimizationScanner.swift */; };
+		100000000000000000000132 /* OptimizationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000126 /* OptimizationViewModel.swift */; };
+		100000000000000000000133 /* OptimizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000127 /* OptimizationView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -90,6 +94,10 @@
 		100000000000000000000120 /* UninstallerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerView.swift; sourceTree = "<group>"; };
 		100000000000000000000121 /* AppDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDetailSheet.swift; sourceTree = "<group>"; };
 		100000000000000000000123 /* OrphanDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrphanDetector.swift; sourceTree = "<group>"; };
+		100000000000000000000124 /* StartupItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupItem.swift; sourceTree = "<group>"; };
+		100000000000000000000125 /* OptimizationScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptimizationScanner.swift; sourceTree = "<group>"; };
+		100000000000000000000126 /* OptimizationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptimizationViewModel.swift; sourceTree = "<group>"; };
+		100000000000000000000127 /* OptimizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptimizationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +145,7 @@
 				100000000000000000000083 /* AppState.swift */,
 				100000000000000000000085 /* AppInfo.swift */,
 				100000000000000000000086 /* AppRemnant.swift */,
+				100000000000000000000124 /* StartupItem.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -148,6 +157,7 @@
 				100000000000000000000052 /* SpaceLensViewModel.swift */,
 				100000000000000000000065 /* SystemJunkViewModel.swift */,
 				100000000000000000000089 /* UninstallerViewModel.swift */,
+				100000000000000000000126 /* OptimizationViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -161,9 +171,18 @@
 				100000000000000000000053 /* SpaceLens */,
 				100000000000000000000067 /* SystemJunk */,
 				100000000000000000000122 /* Uninstaller */,
+				100000000000000000000128 /* Optimization */,
 				100000000000000000000069 /* Shared */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		100000000000000000000128 /* Optimization */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000127 /* OptimizationView.swift */,
+			);
+			path = Optimization;
 			sourceTree = "<group>";
 		};
 		100000000000000000000122 /* Uninstaller */ = {
@@ -233,6 +252,7 @@
 				100000000000000000000087 /* AppDiscoveryService.swift */,
 				100000000000000000000088 /* RemnantScanner.swift */,
 				100000000000000000000123 /* OrphanDetector.swift */,
+				100000000000000000000125 /* OptimizationScanner.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -353,6 +373,10 @@
 				100000000000000000000117 /* UninstallerView.swift in Sources */,
 				100000000000000000000118 /* AppDetailSheet.swift in Sources */,
 				100000000000000000000119 /* OrphanDetector.swift in Sources */,
+				100000000000000000000130 /* StartupItem.swift in Sources */,
+				100000000000000000000131 /* OptimizationScanner.swift in Sources */,
+				100000000000000000000132 /* OptimizationViewModel.swift in Sources */,
+				100000000000000000000133 /* OptimizationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
