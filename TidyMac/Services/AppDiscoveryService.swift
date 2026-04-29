@@ -103,7 +103,7 @@ struct AppDiscoveryService: Sendable {
         let category = forcedCategory ?? Self.classify(bundleId: bundleId, bundleURL: bundleURL)
         let icon = NSWorkspace.shared.icon(forFile: bundleURL.path)
         let size = bundleSize(at: bundleURL)
-        let lastUsed = lastUsedDate(forBundle: bundleURL)
+        let lastUsed = lastUsedDate(bundleId: bundleId, bundleURL: bundleURL)
         let sandboxed = Self.isSandboxed(bundleId: bundleId)
 
         return AppInfo(
@@ -160,39 +160,46 @@ struct AppDiscoveryService: Sendable {
         return total
     }
 
-    // MARK: - Spotlight last-used date
+    // MARK: - Last-used date
 
-    /// Reads kMDItemLastUsedDate via `mdls`. macOS only updates the file
-    /// system atime sporadically, so Spotlight metadata is the most reliable
-    /// source. Returns nil if Spotlight has never indexed this app.
-    private func lastUsedDate(forBundle url: URL) -> Date? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/mdls")
-        process.arguments = ["-name", "kMDItemLastUsedDate", "-raw", url.path]
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = Pipe()
+    /// Modern macOS no longer reliably indexes `kMDItemLastUsedDate` for
+    /// most user-installed apps (Spotlight returns `(null)`). Instead we
+    /// derive last-used from the most recent mtime across the per-bundle
+    /// data locations apps almost always touch on launch/quit:
+    ///
+    ///   ~/Library/Preferences/<bundleId>.plist
+    ///   ~/Library/Saved Application State/<bundleId>.savedState
+    ///   ~/Library/Caches/<bundleId>
+    ///   ~/Library/Containers/<bundleId>
+    ///   ~/Library/Containers/<bundleId>/Data/Library/Preferences/<bundleId>.plist
+    ///
+    /// Falls back to the bundle's own mtime (≈ install/update date) if no
+    /// data files exist for the app yet.
+    private func lastUsedDate(bundleId: String, bundleURL: URL) -> Date? {
+        let home = NSHomeDirectory()
+        let candidates = [
+            "\(home)/Library/Preferences/\(bundleId).plist",
+            "\(home)/Library/Saved Application State/\(bundleId).savedState",
+            "\(home)/Library/Caches/\(bundleId)",
+            "\(home)/Library/Containers/\(bundleId)",
+            "\(home)/Library/Containers/\(bundleId)/Data/Library/Preferences/\(bundleId).plist",
+            "\(home)/Library/HTTPStorages/\(bundleId)"
+        ]
 
-        do {
-            try process.run()
-        } catch {
-            return nil
+        var latest: Date?
+        for path in candidates {
+            let url = URL(fileURLWithPath: path)
+            if let mtime = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
+                if latest == nil || mtime > (latest ?? .distantPast) {
+                    latest = mtime
+                }
+            }
         }
-        process.waitUntilExit()
 
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        guard let raw = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty,
-              raw != "(null)"
-        else {
-            return nil
-        }
+        if let latest { return latest }
 
-        // mdls -raw emits e.g. "2025-12-31 18:42:07 +0000"
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss Z"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        return formatter.date(from: raw)
+        // Fall back to the .app bundle's own mtime — at minimum this tells
+        // us when the app was installed or last updated.
+        return try? bundleURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
     }
 }
