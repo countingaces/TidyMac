@@ -24,6 +24,7 @@ struct SystemJunkScanner: Sendable {
             ("Scanning user logs…",          { try await scanUserLogs() }),
             ("Reviewing downloads…",         { try await scanDownloads() }),
             ("Scanning Xcode artifacts…",    { try await scanXcodeJunk() }),
+            ("Scanning old updates…",        { try await scanOldUpdates() }),
             ("Looking for broken preferences…", { try await scanBrokenPreferences(context: context) }),
             ("Scanning language files…",     { try await scanLanguageFiles(context: context) }),
             ("Scanning universal binaries…", { try await scanUniversalBinaries() }),
@@ -276,7 +277,11 @@ struct SystemJunkScanner: Sendable {
 
                 let modDate = values?.contentModificationDate
                 let accessDate = values?.contentAccessDate
-                let dateToCheck = accessDate ?? modDate ?? Date()
+                // Prefer modification date — access dates get touched by
+                // Spotlight/Quick Look/Finder previews, hiding genuinely stale
+                // files behind a fresh atime. Fall back to access if mod is
+                // missing.
+                let dateToCheck = modDate ?? accessDate ?? Date()
 
                 let ext = entryURL.pathExtension.lowercased()
                 let isInstaller = installerExts.contains(ext)
@@ -320,30 +325,39 @@ struct SystemJunkScanner: Sendable {
             return makeCategory(
                 id: "xcode",
                 title: "Xcode Junk",
-                description: "Build artifacts, archives, and device support files.",
+                description: "Build artifacts, archives, simulators, and device support files.",
                 icon: "hammer.fill",
                 items: []
             )
         }
 
         let home = URL(fileURLWithPath: NSHomeDirectory())
-        let groups: [(label: String, path: String)] = [
-            ("Derived Data",        "Library/Developer/Xcode/DerivedData"),
-            ("Archive",             "Library/Developer/Xcode/Archives"),
-            ("iOS Device Support",  "Library/Developer/Xcode/iOS DeviceSupport"),
-            ("Simulator",           "Library/Developer/CoreSimulator/Devices")
+        // User-scoped Xcode artifacts
+        let userGroups: [(label: String, url: URL)] = [
+            ("Derived Data",       home.appendingPathComponent("Library/Developer/Xcode/DerivedData", isDirectory: true)),
+            ("Archive",            home.appendingPathComponent("Library/Developer/Xcode/Archives", isDirectory: true)),
+            ("iOS Device Support", home.appendingPathComponent("Library/Developer/Xcode/iOS DeviceSupport", isDirectory: true)),
+            ("Simulator Devices",  home.appendingPathComponent("Library/Developer/CoreSimulator/Devices", isDirectory: true))
+        ]
+        // System-scoped simulator runtimes — typically the largest portion of
+        // Xcode disk usage. Prior versions only checked the user-scoped paths
+        // and badly under-reported.
+        let systemGroups: [(label: String, url: URL)] = [
+            ("Simulator Runtimes", URL(fileURLWithPath: "/Library/Developer/CoreSimulator/Volumes")),
+            ("Simulator Cryptex",  URL(fileURLWithPath: "/Library/Developer/CoreSimulator/Cryptex")),
+            ("Simulator Images",   URL(fileURLWithPath: "/Library/Developer/CoreSimulator/Images")),
+            ("Simulator Cache",    URL(fileURLWithPath: "/Library/Developer/CoreSimulator/Caches"))
         ]
 
         var items: [JunkItem] = []
-        for group in groups {
+        for group in userGroups + systemGroups {
             try Task.checkCancellation()
-            let url = home.appendingPathComponent(group.path, isDirectory: true)
-            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: url.path) else { continue }
+            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: group.url.path) else { continue }
 
             for entry in entries {
                 try Task.checkCancellation()
                 if entry.hasPrefix(".") { continue }
-                let entryURL = url.appendingPathComponent(entry, isDirectory: true)
+                let entryURL = group.url.appendingPathComponent(entry, isDirectory: true)
                 let size = bulkDirectorySize(at: entryURL)
                 if size <= 0 { continue }
                 items.append(JunkItem(
@@ -362,6 +376,49 @@ struct SystemJunkScanner: Sendable {
             title: "Xcode Junk",
             description: "DerivedData, archives, simulators, and device support files.",
             icon: "hammer.fill",
+            items: items.sorted { $0.size > $1.size }
+        )
+    }
+
+    // MARK: - Old Updates (new in this revision)
+
+    private func scanOldUpdates() async throws -> ScanCategory<JunkItem> {
+        try Task.checkCancellation()
+
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        let groups: [(label: String, url: URL)] = [
+            ("System Update", URL(fileURLWithPath: "/Library/Updates")),
+            ("Software Update Cache", home.appendingPathComponent("Library/Caches/com.apple.SoftwareUpdate", isDirectory: true)),
+            ("Software Update Support", home.appendingPathComponent("Library/Application Support/com.apple.SoftwareUpdate", isDirectory: true))
+        ]
+
+        var items: [JunkItem] = []
+        for group in groups {
+            try Task.checkCancellation()
+            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: group.url.path) else { continue }
+
+            for entry in entries {
+                try Task.checkCancellation()
+                if entry.hasPrefix(".") { continue }
+                let entryURL = group.url.appendingPathComponent(entry, isDirectory: true)
+                let size = bulkDirectorySize(at: entryURL)
+                if size <= 0 { continue }
+                items.append(JunkItem(
+                    name: "\(group.label) — \(entry)",
+                    path: entryURL,
+                    size: size,
+                    safetyLevel: .safe,
+                    categoryId: "old-updates",
+                    lastModified: lastModified(at: entryURL)
+                ))
+            }
+        }
+
+        return makeCategory(
+            id: "old-updates",
+            title: "Old Updates",
+            description: "Downloaded macOS installers and software-update caches no longer needed.",
+            icon: "arrow.down.app.fill",
             items: items.sorted { $0.size > $1.size }
         )
     }
@@ -499,44 +556,46 @@ struct SystemJunkScanner: Sendable {
             )
         }
 
-        let appsURL = URL(fileURLWithPath: "/Applications")
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        // Skip /System/Applications: those are sealed/read-only and can't be
+        // stripped anyway.
+        let appLocations: [URL] = [
+            URL(fileURLWithPath: "/Applications"),
+            URL(fileURLWithPath: "/Applications/Utilities"),
+            home.appendingPathComponent("Applications", isDirectory: true)
+        ]
         var items: [JunkItem] = []
 
-        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: appsURL.path) else {
-            return makeCategory(
-                id: "universal",
-                title: "Universal Binaries",
-                description: "Unused architecture slices in apps.",
-                icon: "cpu",
-                items: []
-            )
-        }
-
-        for entry in entries where entry.hasSuffix(".app") {
+        for appsURL in appLocations {
             try Task.checkCancellation()
-            let appURL = appsURL.appendingPathComponent(entry, isDirectory: true)
-            let infoPlistURL = appURL.appendingPathComponent("Contents/Info.plist")
+            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: appsURL.path) else { continue }
 
-            guard let info = NSDictionary(contentsOf: infoPlistURL) as? [String: Any],
-                  let exeName = info["CFBundleExecutable"] as? String
-            else { continue }
+            for entry in entries where entry.hasSuffix(".app") {
+                try Task.checkCancellation()
+                let appURL = appsURL.appendingPathComponent(entry, isDirectory: true)
+                let infoPlistURL = appURL.appendingPathComponent("Contents/Info.plist")
 
-            let exeURL = appURL.appendingPathComponent("Contents/MacOS").appendingPathComponent(exeName)
-            guard FileManager.default.fileExists(atPath: exeURL.path) else { continue }
+                guard let info = NSDictionary(contentsOf: infoPlistURL) as? [String: Any],
+                      let exeName = info["CFBundleExecutable"] as? String
+                else { continue }
 
-            let unwantedSize = sliceSize(of: exeURL.path, for: unwantedArch, lipoPath: lipoPath)
-            guard unwantedSize > 1_048_576 else { continue }
+                let exeURL = appURL.appendingPathComponent("Contents/MacOS").appendingPathComponent(exeName)
+                guard FileManager.default.fileExists(atPath: exeURL.path) else { continue }
 
-            let displayName = entry.hasSuffix(".app")
-                ? String(entry.dropLast(".app".count))
-                : entry
-            items.append(JunkItem(
-                name: "\(displayName) (\(unwantedArch) slice)",
-                path: exeURL,
-                size: unwantedSize,
-                safetyLevel: .cautious,
-                categoryId: "universal"
-            ))
+                let unwantedSize = sliceSize(of: exeURL.path, for: unwantedArch, lipoPath: lipoPath)
+                guard unwantedSize > 1_048_576 else { continue }
+
+                let displayName = entry.hasSuffix(".app")
+                    ? String(entry.dropLast(".app".count))
+                    : entry
+                items.append(JunkItem(
+                    name: "\(displayName) (\(unwantedArch) slice)",
+                    path: exeURL,
+                    size: unwantedSize,
+                    safetyLevel: .cautious,
+                    categoryId: "universal"
+                ))
+            }
         }
 
         return makeCategory(
