@@ -314,6 +314,7 @@ private struct ItemRow: View {
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.orange.opacity(0.14)))
+                            .help("You'll be asked for your password when toggling or removing this item.")
                     }
                 }
 
@@ -381,8 +382,11 @@ private struct ItemRow: View {
 
     @ViewBuilder
     private var actionControls: some View {
+        let isPending = viewModel.pendingItemIds.contains(item.id)
         VStack(alignment: .trailing, spacing: 4) {
-            if item.isIssue && !item.requiresAdmin {
+            if isPending {
+                ProgressView().controlSize(.small).scaleEffect(0.7)
+            } else if item.isIssue {
                 Button("Remove") {
                     viewModel.removeItem(id: item.id)
                 }
@@ -395,7 +399,6 @@ private struct ItemRow: View {
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .controlSize(.small)
-                .disabled(item.requiresAdmin)
             }
         }
     }
