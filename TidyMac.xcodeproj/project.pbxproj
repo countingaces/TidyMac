@@ -28,6 +28,8 @@
 		100000000000000000000078 /* BulkDirectoryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000059 /* BulkDirectoryReader.swift */; };
 		100000000000000000000090 /* ScanModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000060 /* ScanModels.swift */; };
 		100000000000000000000091 /* ScanModuleProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000061 /* ScanModuleProtocol.swift */; };
+		100000000000000000000092 /* JunkItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000063 /* JunkItem.swift */; };
+		100000000000000000000093 /* SystemJunkScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000064 /* SystemJunkScanner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +56,8 @@
 		100000000000000000000059 /* BulkDirectoryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkDirectoryReader.swift; sourceTree = "<group>"; };
 		100000000000000000000060 /* ScanModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModels.swift; sourceTree = "<group>"; };
 		100000000000000000000061 /* ScanModuleProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModuleProtocol.swift; sourceTree = "<group>"; };
+		100000000000000000000063 /* JunkItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JunkItem.swift; sourceTree = "<group>"; };
+		100000000000000000000064 /* SystemJunkScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkScanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +101,7 @@
 				100000000000000000000022 /* ColorTheme.swift */,
 				100000000000000000000050 /* FileNode.swift */,
 				100000000000000000000060 /* ScanModels.swift */,
+				100000000000000000000063 /* JunkItem.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -155,6 +160,7 @@
 				100000000000000000000051 /* FileSystemScanner.swift */,
 				100000000000000000000058 /* FullDiskAccessChecker.swift */,
 				100000000000000000000059 /* BulkDirectoryReader.swift */,
+				100000000000000000000064 /* SystemJunkScanner.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -257,6 +263,8 @@
 				100000000000000000000078 /* BulkDirectoryReader.swift in Sources */,
 				100000000000000000000090 /* ScanModels.swift in Sources */,
 				100000000000000000000091 /* ScanModuleProtocol.swift in Sources */,
+				100000000000000000000092 /* JunkItem.swift in Sources */,
+				100000000000000000000093 /* SystemJunkScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
