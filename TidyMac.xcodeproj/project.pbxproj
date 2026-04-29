@@ -55,6 +55,8 @@
 		100000000000000000000150 /* SmartScanOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000143 /* SmartScanOrchestrator.swift */; };
 		100000000000000000000151 /* HealthScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000144 /* HealthScore.swift */; };
 		100000000000000000000152 /* HealthScoreCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000145 /* HealthScoreCalculator.swift */; };
+		100000000000000000000160 /* SmartScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000146 /* SmartScanViewModel.swift */; };
+		100000000000000000000161 /* SmartScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000147 /* SmartScanView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -108,6 +110,8 @@
 		100000000000000000000143 /* SmartScanOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartScanOrchestrator.swift; sourceTree = "<group>"; };
 		100000000000000000000144 /* HealthScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthScore.swift; sourceTree = "<group>"; };
 		100000000000000000000145 /* HealthScoreCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthScoreCalculator.swift; sourceTree = "<group>"; };
+		100000000000000000000146 /* SmartScanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartScanViewModel.swift; sourceTree = "<group>"; };
+		100000000000000000000147 /* SmartScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartScanView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -169,6 +173,7 @@
 				100000000000000000000089 /* UninstallerViewModel.swift */,
 				100000000000000000000126 /* OptimizationViewModel.swift */,
 				100000000000000000000135 /* MaintenanceViewModel.swift */,
+				100000000000000000000146 /* SmartScanViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -184,9 +189,18 @@
 				100000000000000000000122 /* Uninstaller */,
 				100000000000000000000128 /* Optimization */,
 				100000000000000000000137 /* Maintenance */,
+				100000000000000000000148 /* SmartScan */,
 				100000000000000000000069 /* Shared */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		100000000000000000000148 /* SmartScan */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000147 /* SmartScanView.swift */,
+			);
+			path = SmartScan;
 			sourceTree = "<group>";
 		};
 		100000000000000000000128 /* Optimization */ = {
@@ -405,6 +419,8 @@
 				100000000000000000000150 /* SmartScanOrchestrator.swift in Sources */,
 				100000000000000000000151 /* HealthScore.swift in Sources */,
 				100000000000000000000152 /* HealthScoreCalculator.swift in Sources */,
+				100000000000000000000160 /* SmartScanViewModel.swift in Sources */,
+				100000000000000000000161 /* SmartScanView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

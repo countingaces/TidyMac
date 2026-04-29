@@ -13,6 +13,13 @@ final class SmartScanOrchestrator: ObservableObject {
     @Published var moduleStates: [String: ModuleProgress] = [:]
     @Published var results: SmartScanResults?
 
+    /// In-memory cache of the most recent System Junk results. The
+    /// persisted SmartScanResults only carries a summary, but the Smart
+    /// Scan UI's "Clean" button needs the actual JunkItem instances to
+    /// run through CleaningService. Cleared on app launch — Smart Scan
+    /// re-scans from scratch each time the app reopens.
+    private(set) var lastJunkCategories: [ScanCategory<JunkItem>] = []
+
     enum SmartScanState: Equatable {
         case idle
         case scanning(currentModule: String, overallProgress: Double)
@@ -188,6 +195,7 @@ final class SmartScanOrchestrator: ObservableObject {
                 )
             }
         }
+        lastJunkCategories = categories
         let totalSize = categories.reduce(Int64(0)) { $0 + $1.totalSize }
         let totalItems = categories.reduce(0) { $0 + $1.itemCount }
         let safeSize = categories.flatMap { $0.items }
