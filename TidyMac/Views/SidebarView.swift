@@ -84,6 +84,7 @@ private struct SidebarItemRow: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @EnvironmentObject private var appState: AppState
     @State private var isHovered = false
 
     var body: some View {
@@ -100,6 +101,18 @@ private struct SidebarItemRow: View {
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
+
+                if let badge = appState.sidebarBadges[item] {
+                    Text(badge)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(item.theme.primary)
+                        .monospacedDigit()
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule().fill(item.theme.primary.opacity(0.14))
+                        )
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
@@ -139,4 +152,5 @@ private struct SidebarItemRow: View {
 #Preview {
     SidebarView(selection: .constant(.smartScan))
         .frame(width: 200, height: 650)
+        .environmentObject(AppState())
 }

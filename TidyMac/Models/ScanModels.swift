@@ -30,6 +30,33 @@ struct ModuleInfo {
     let description: String
     let icon: String
     let colorTheme: ColorTheme
+    let features: [Feature]
+
+    struct Feature: Identifiable {
+        let id = UUID()
+        let icon: String
+        let title: String
+        let subtitle: String
+    }
+}
+
+// MARK: - Sort + Selection
+
+enum SortMode: String, CaseIterable, Identifiable {
+    case size, name
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .size: return "Size"
+        case .name: return "Name"
+        }
+    }
+}
+
+enum SelectionState: Equatable {
+    case none, partial, all
 }
 
 // MARK: - Safety Level

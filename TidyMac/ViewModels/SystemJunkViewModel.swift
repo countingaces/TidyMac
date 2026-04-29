@@ -6,38 +6,39 @@ import AppKit
 final class SystemJunkViewModel: ObservableObject, ScanModule {
     typealias ResultType = JunkItem
 
-    enum SortMode: String, CaseIterable, Identifiable {
-        case size, name
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .size: return "Size"
-            case .name: return "Name"
-            }
-        }
-    }
-
-    enum SelectionState: Equatable {
-        case none, partial, all
-    }
-
     let moduleInfo = ModuleInfo(
         id: "systemJunk",
         title: "System Junk",
         description: "Find and remove system files that clutter your Mac",
         icon: "trash.circle.fill",
-        colorTheme: .cleanup
+        colorTheme: .cleanup,
+        features: [
+            ModuleInfo.Feature(
+                icon: "scope",
+                title: "Deep clean",
+                subtitle: "Removes caches, logs, and temporary files that accumulate over time"
+            ),
+            ModuleInfo.Feature(
+                icon: "wand.and.rays",
+                title: "Smart detection",
+                subtitle: "Identifies junk from specific apps like Xcode, browsers, and mail"
+            )
+        ]
     )
+
+    // MARK: - ScanModule conformance (stored)
 
     @Published var scanState: ScanState = .idle
     @Published var results: [ScanCategory<JunkItem>] = []
     @Published var selectedItemIds: Set<UUID> = []
     @Published var selectedCategoryId: String?
     @Published var sortMode: SortMode = .size
-    @Published var alertMessage: String?
+
+    // MARK: - Cleaning-flow state (not in protocol)
 
     @Published var cleaningPhase: CleaningPhase = .idle
     @Published var runningAppsToQuit: [NSRunningApplication] = []
+    @Published var alertMessage: String?
 
     enum CleaningPhase {
         case idle
@@ -46,88 +47,30 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
         case finished(CleaningService.CleaningResult)
     }
 
-    private var scanTask: Task<Void, Never>?
+    var isCleaning: Bool {
+        if case .inProgress = cleaningPhase { return true }
+        return false
+    }
+
+    // MARK: - Internal
+
+    private var scanTask: Task<Void, Error>?
     private var cleanTask: Task<Void, Never>?
     private let scanner = SystemJunkScanner()
     private let cleaningService = CleaningService()
 
-    // MARK: - Derived state
-
-    var selectedSize: Int64 {
-        results.flatMap { $0.items }
-            .filter { selectedItemIds.contains($0.id) }
-            .reduce(Int64(0)) { $0 + $1.size }
-    }
-
-    var totalCleanableSize: Int64 {
-        results.reduce(Int64(0)) { $0 + $1.totalSize }
-    }
-
-    var selectedItems: [JunkItem] {
-        results.flatMap { $0.items }.filter { selectedItemIds.contains($0.id) }
-    }
-
-    var selectedCategory: ScanCategory<JunkItem>? {
-        guard let id = selectedCategoryId else { return nil }
-        return results.first { $0.id == id }
-    }
-
-    var sortedCategories: [ScanCategory<JunkItem>] {
-        switch sortMode {
-        case .size: return results.sorted { $0.totalSize > $1.totalSize }
-        case .name: return results.sorted { $0.title < $1.title }
-        }
-    }
-
-    func sortedItems(in category: ScanCategory<JunkItem>) -> [JunkItem] {
-        switch sortMode {
-        case .size: return category.items.sorted { $0.size > $1.size }
-        case .name: return category.items.sorted { $0.name < $1.name }
-        }
-    }
-
-    func selectionState(for category: ScanCategory<JunkItem>) -> SelectionState {
-        let total = category.items.count
-        guard total > 0 else { return .none }
-        let selected = category.items.filter { selectedItemIds.contains($0.id) }.count
-        if selected == 0 { return .none }
-        if selected == total { return .all }
-        return .partial
-    }
-
-    func safetyLevel(for category: ScanCategory<JunkItem>) -> SafetyLevel {
-        category.items.first?.safetyLevel ?? .safe
-    }
-
-    // MARK: - ScanModule conformance
+    // MARK: - ScanModule conformance (methods)
 
     func startScan() async {
-        scanState = .scanning(progress: .empty)
-        results = []
-        selectedItemIds = []
-        selectedCategoryId = nil
-
+        scanTask?.cancel()
+        let task = Task<Void, Error> { try await self.performScan() }
+        scanTask = task
         do {
-            let scanned = try await scanner.scan { progress in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.scanState = .scanning(progress: ScanProgress(
-                        currentActivity: progress.currentActivity,
-                        itemsFound: progress.itemsFound,
-                        sizeFound: progress.sizeFound
-                    ))
-                }
-            }
-            try Task.checkCancellation()
-
-            self.results = scanned
-            self.selectAllSafe()
-            self.selectedCategoryId = sortedCategories.first?.id
-            self.scanState = .complete
+            try await task.value
         } catch is CancellationError {
-            self.scanState = .idle
+            scanState = .idle
         } catch {
-            self.scanState = .error(error.localizedDescription)
+            scanState = .error(error.localizedDescription)
         }
     }
 
@@ -146,23 +89,32 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
         }
     }
 
-    var isCleaning: Bool {
-        if case .inProgress = cleaningPhase { return true }
-        return false
-    }
+    private func performScan() async throws {
+        scanState = .scanning(progress: .empty)
+        results = []
+        selectedItemIds = []
+        selectedCategoryId = nil
 
-    // MARK: - View helpers
-
-    func beginScan() {
-        scanTask?.cancel()
-        scanTask = Task { [weak self] in
-            await self?.startScan()
+        let scanned = try await scanner.scan { progress in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.scanState = .scanning(progress: ScanProgress(
+                    currentActivity: progress.currentActivity,
+                    itemsFound: progress.itemsFound,
+                    sizeFound: progress.sizeFound
+                ))
+            }
         }
+        try Task.checkCancellation()
+
+        self.results = scanned
+        self.selectAllSafe()
+        self.selectedCategoryId = sortedCategories.first?.id
+        self.scanState = .complete
     }
 
-    // MARK: - Rich cleaning flow (UI)
+    // MARK: - Rich cleaning flow
 
-    /// Entry point from the UI Clean button.
     func requestClean() {
         let conflicting = CleaningService.conflictingRunningApps(for: selectedItems)
         runningAppsToQuit = conflicting
@@ -179,7 +131,6 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
 
     func quitAllAndContinue() {
         CleaningService.quitAll(runningAppsToQuit)
-        // Brief delay so apps actually exit before we try to trash their files.
         cleanTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             await MainActor.run { [weak self] in
@@ -262,48 +213,4 @@ final class SystemJunkViewModel: ObservableObject, ScanModule {
             selectedCategoryId = sortedCategories.first?.id
         }
     }
-
-    func selectAllSafe() {
-        for category in results where category.items.first?.safetyLevel == .safe {
-            for item in category.items {
-                selectedItemIds.insert(item.id)
-            }
-        }
-    }
-
-    func deselectAll() {
-        selectedItemIds.removeAll()
-    }
-
-    func toggleCategory(id: String) {
-        guard let category = results.first(where: { $0.id == id }) else { return }
-        let allSelected = category.items.allSatisfy { selectedItemIds.contains($0.id) }
-        if allSelected {
-            for item in category.items {
-                selectedItemIds.remove(item.id)
-            }
-        } else {
-            for item in category.items {
-                selectedItemIds.insert(item.id)
-            }
-        }
-    }
-
-    func toggleItem(id: UUID) {
-        if selectedItemIds.contains(id) {
-            selectedItemIds.remove(id)
-        } else {
-            selectedItemIds.insert(id)
-        }
-    }
-
-    func returnToIdle() {
-        scanTask?.cancel()
-        scanTask = nil
-        results = []
-        selectedItemIds = []
-        selectedCategoryId = nil
-        scanState = .idle
-    }
-
 }

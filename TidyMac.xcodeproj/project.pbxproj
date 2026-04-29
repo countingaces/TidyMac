@@ -36,6 +36,8 @@
 		100000000000000000000097 /* CleaningProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000080 /* CleaningProgressView.swift */; };
 		100000000000000000000098 /* CleaningCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000081 /* CleaningCompleteView.swift */; };
 		100000000000000000000099 /* QuitAppsDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000082 /* QuitAppsDialog.swift */; };
+		100000000000000000000110 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000083 /* AppState.swift */; };
+		100000000000000000000111 /* ModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000084 /* ModuleView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -70,6 +72,8 @@
 		100000000000000000000080 /* CleaningProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningProgressView.swift; sourceTree = "<group>"; };
 		100000000000000000000081 /* CleaningCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningCompleteView.swift; sourceTree = "<group>"; };
 		100000000000000000000082 /* QuitAppsDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitAppsDialog.swift; sourceTree = "<group>"; };
+		100000000000000000000083 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		100000000000000000000084 /* ModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModuleView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +118,7 @@
 				100000000000000000000050 /* FileNode.swift */,
 				100000000000000000000060 /* ScanModels.swift */,
 				100000000000000000000063 /* JunkItem.swift */,
+				100000000000000000000083 /* AppState.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -147,6 +152,7 @@
 				100000000000000000000080 /* CleaningProgressView.swift */,
 				100000000000000000000081 /* CleaningCompleteView.swift */,
 				100000000000000000000082 /* QuitAppsDialog.swift */,
+				100000000000000000000084 /* ModuleView.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -305,6 +311,8 @@
 				100000000000000000000097 /* CleaningProgressView.swift in Sources */,
 				100000000000000000000098 /* CleaningCompleteView.swift in Sources */,
 				100000000000000000000099 /* QuitAppsDialog.swift in Sources */,
+				100000000000000000000110 /* AppState.swift in Sources */,
+				100000000000000000000111 /* ModuleView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
