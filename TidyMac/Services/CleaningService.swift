@@ -175,6 +175,24 @@ final class CleaningService {
             return
         }
 
+        do {
+            try await recycleViaWorkspace(url)
+        } catch {
+            // For /Applications/*.app paths that NSWorkspace can't move on
+            // its own (Mac App Store apps with _MASReceipt, third-party
+            // installers that set restrictive ACLs, etc.), retry via Finder.
+            // Finder triggers macOS's standard admin-auth prompt when needed
+            // — the same prompt you get when dragging an app to Trash from
+            // Finder normally.
+            if Self.shouldRetryViaFinder(url) {
+                try await deleteViaFinder(url)
+                return
+            }
+            throw error
+        }
+    }
+
+    private func recycleViaWorkspace(_ url: URL) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             NSWorkspace.shared.recycle([url]) { newURLs, error in
                 if let error {
@@ -188,6 +206,81 @@ final class CleaningService {
                 continuation.resume(returning: ())
             }
         }
+    }
+
+    /// Only escalate to Finder for top-level .app bundles in /Applications/
+    /// or /Applications/Utilities/. Anywhere else (containers, prefs, etc.)
+    /// is owned by the user and either succeeds via NSWorkspace or fails
+    /// because the item is system-managed — Finder doesn't help with those.
+    private static func shouldRetryViaFinder(_ url: URL) -> Bool {
+        guard url.pathExtension == "app" else { return false }
+        let path = url.path
+        return path.hasPrefix("/Applications/")
+            || path.hasPrefix("/Applications/Utilities/")
+    }
+
+    /// Ask Finder (via osascript) to move the item to Trash. Finder is
+    /// allowed to escalate to admin auth when it needs to — that's how the
+    /// drag-to-Trash flow handles Mac App Store apps. The first time TidyMac
+    /// sends an Apple Event to Finder, macOS shows a Privacy & Security ➜
+    /// Automation prompt; user must allow Finder control for this to work.
+    private func deleteViaFinder(_ url: URL) async throws {
+        let escaped = url.path.replacingOccurrences(of: "\"", with: "\\\"")
+        // Move-to-Trash, capture any AppleScript error so we can surface it.
+        let script = """
+        tell application "Finder"
+            try
+                delete (POSIX file "\(escaped)" as alias)
+                return "OK"
+            on error errMsg number errNum
+                return "ERR " & errNum & ": " & errMsg
+            end try
+        end tell
+        """
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        do {
+            try process.run()
+        } catch {
+            throw CleaningError.simctlFailed(
+                "Couldn't launch osascript to retry via Finder: \(error.localizedDescription)"
+            )
+        }
+        process.waitUntilExit()
+
+        // Source of truth: did the file actually go away?
+        if !FileManager.default.fileExists(atPath: url.path) {
+            return
+        }
+
+        // Otherwise, surface the most informative error we have.
+        let outStr = (String(data: stdout.fileHandleForReading.readDataToEndOfFile(),
+                             encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let errStr = (String(data: stderr.fileHandleForReading.readDataToEndOfFile(),
+                             encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let combined = errStr.isEmpty ? outStr : errStr
+        if combined.contains("-1743") || combined.contains("Not authorized") {
+            throw CleaningError.simctlFailed(
+                "TidyMac needs permission to control Finder. Open System Settings → Privacy & Security → Automation, expand TidyMac, and enable Finder. Then try again."
+            )
+        }
+        if combined.contains("-128") || combined.localizedCaseInsensitiveContains("cancel") {
+            throw CleaningError.simctlFailed("Authorization cancelled.")
+        }
+        if combined.isEmpty {
+            throw CleaningError.recycleFailed
+        }
+        throw CleaningError.simctlFailed("Finder couldn't move \(url.lastPathComponent) to Trash: \(combined)")
     }
 
     private static func isInTrash(_ url: URL) -> Bool {
