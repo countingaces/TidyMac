@@ -5,6 +5,12 @@ import Darwin
 /// CPU / memory / disk on a timer that only ticks while the popover is
 /// open — `start()` from `.onAppear`, `stop()` from `.onDisappear` so
 /// we don't burn battery sampling stats no one's looking at.
+///
+/// All sampling syscalls run on a background `Task.detached` so they
+/// can't block the popover's render — even if the system is under
+/// load (mid-shutdown, busy disk, etc.). The very first sample is
+/// deferred 200 ms after `start()` so the popover paints before we
+/// touch the kernel.
 @MainActor
 final class SystemMonitor: ObservableObject {
     @Published var cpuPercent: Double = 0
@@ -14,11 +20,27 @@ final class SystemMonitor: ObservableObject {
     @Published var diskTotalBytes: Int64 = 0
 
     private var timer: Timer?
-    private var lastUserTicks: UInt64 = 0
-    private var lastSystemTicks: UInt64 = 0
-    private var lastIdleTicks: UInt64 = 0
-    private var lastNiceTicks: UInt64 = 0
-    private var hasBaseline = false
+    private var baseline = CPUBaseline()
+
+    /// Cumulative tick counts from the previous sample, used to compute
+    /// percent CPU as a delta. First sample after start() returns 0.
+    private struct CPUBaseline: Sendable {
+        var user: UInt64 = 0
+        var system: UInt64 = 0
+        var idle: UInt64 = 0
+        var nice: UInt64 = 0
+        var hasBaseline = false
+    }
+
+    /// Result handed back to the main actor after a background sample.
+    private struct Snapshot: Sendable {
+        let cpuPercent: Double
+        let memUsed: Int64
+        let memTotal: Int64
+        let diskFree: Int64
+        let diskTotal: Int64
+        let newBaseline: CPUBaseline
+    }
 
     var memoryUsedPercent: Double {
         guard memoryTotalBytes > 0 else { return 0 }
@@ -32,9 +54,11 @@ final class SystemMonitor: ObservableObject {
 
     func start(every interval: TimeInterval = 5) {
         stop()
-        sampleOnce()
-        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.sampleOnce() }
+        // First fire is 200 ms out so the popover paints before we
+        // syscall. Subsequent fires are on the regular interval.
+        let firstFire = Date(timeIntervalSinceNow: 0.2)
+        let timer = Timer(fire: firstFire, interval: interval, repeats: true) { [weak self] _ in
+            self?.scheduleSample()
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -45,23 +69,42 @@ final class SystemMonitor: ObservableObject {
         timer = nil
     }
 
-    private func sampleOnce() {
-        cpuPercent = currentCPULoad()
-        let mem = currentMemory()
-        memoryUsedBytes = mem.used
-        memoryTotalBytes = mem.total
-        let disk = currentDisk()
-        diskFreeBytes = disk.free
-        diskTotalBytes = disk.total
+    /// Bounce out to a background task to do the actual host_statistics
+    /// / vm_statistics64 / URL.resourceValues work, then back to main
+    /// only to publish the new values. Keeps the main thread free.
+    private func scheduleSample() {
+        let baselineCopy = baseline
+        Task.detached(priority: .userInitiated) {
+            let snapshot = Self.takeSnapshot(baseline: baselineCopy)
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.cpuPercent = snapshot.cpuPercent
+                self.memoryUsedBytes = snapshot.memUsed
+                self.memoryTotalBytes = snapshot.memTotal
+                self.diskFreeBytes = snapshot.diskFree
+                self.diskTotalBytes = snapshot.diskTotal
+                self.baseline = snapshot.newBaseline
+            }
+        }
     }
 
-    // MARK: - CPU
+    // MARK: - Background sampling (pure functions, never touch @Published)
 
-    /// Reads cumulative CPU ticks via host_statistics(HOST_CPU_LOAD_INFO),
-    /// then returns the percentage of non-idle ticks since the last
-    /// sample. First call returns 0 (no baseline yet) so the bar starts
-    /// at zero rather than spiking on launch.
-    private func currentCPULoad() -> Double {
+    private nonisolated static func takeSnapshot(baseline: CPUBaseline) -> Snapshot {
+        let cpu = sampleCPU(baseline: baseline)
+        let mem = sampleMemory()
+        let disk = sampleDisk()
+        return Snapshot(
+            cpuPercent: cpu.percent,
+            memUsed: mem.used,
+            memTotal: mem.total,
+            diskFree: disk.free,
+            diskTotal: disk.total,
+            newBaseline: cpu.newBaseline
+        )
+    }
+
+    private nonisolated static func sampleCPU(baseline: CPUBaseline) -> (percent: Double, newBaseline: CPUBaseline) {
         var size = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info_data_t>.stride / MemoryLayout<integer_t>.stride)
         var info = host_cpu_load_info_data_t()
         let result = withUnsafeMutablePointer(to: &info) {
@@ -69,38 +112,30 @@ final class SystemMonitor: ObservableObject {
                 host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &size)
             }
         }
-        guard result == KERN_SUCCESS else { return cpuPercent }
+        guard result == KERN_SUCCESS else { return (0, baseline) }
 
         let user = UInt64(info.cpu_ticks.0)
         let system = UInt64(info.cpu_ticks.1)
         let idle = UInt64(info.cpu_ticks.2)
         let nice = UInt64(info.cpu_ticks.3)
 
-        defer {
-            lastUserTicks = user
-            lastSystemTicks = system
-            lastIdleTicks = idle
-            lastNiceTicks = nice
-            hasBaseline = true
-        }
+        var newBaseline = CPUBaseline(user: user, system: system, idle: idle, nice: nice, hasBaseline: true)
+        guard baseline.hasBaseline else { return (0, newBaseline) }
 
-        guard hasBaseline else { return 0 }
-        let userDelta = user &- lastUserTicks
-        let systemDelta = system &- lastSystemTicks
-        let idleDelta = idle &- lastIdleTicks
-        let niceDelta = nice &- lastNiceTicks
+        let userDelta = user &- baseline.user
+        let systemDelta = system &- baseline.system
+        let idleDelta = idle &- baseline.idle
+        let niceDelta = nice &- baseline.nice
         let total = userDelta + systemDelta + idleDelta + niceDelta
-        guard total > 0 else { return 0 }
+        guard total > 0 else { return (0, newBaseline) }
         let nonIdle = userDelta + systemDelta + niceDelta
-        return Double(nonIdle) / Double(total)
+        return (Double(nonIdle) / Double(total), newBaseline)
     }
-
-    // MARK: - Memory
 
     /// Used = active + wired + compressed (the same definition Activity
     /// Monitor uses for "Memory Used"). Inactive pages aren't counted —
     /// they're available for the system to reclaim instantly.
-    private func currentMemory() -> (used: Int64, total: Int64) {
+    private nonisolated static func sampleMemory() -> (used: Int64, total: Int64) {
         var pageSize: vm_size_t = 0
         host_page_size(mach_host_self(), &pageSize)
 
@@ -122,9 +157,7 @@ final class SystemMonitor: ObservableObject {
         return (used, total)
     }
 
-    // MARK: - Disk
-
-    private func currentDisk() -> (free: Int64, total: Int64) {
+    private nonisolated static func sampleDisk() -> (free: Int64, total: Int64) {
         let url = URL(fileURLWithPath: NSHomeDirectory())
         guard let values = try? url.resourceValues(forKeys: [
             .volumeAvailableCapacityKey,

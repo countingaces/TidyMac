@@ -66,6 +66,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// Explicitly approve termination requests. SwiftUI's scene
+    /// lifecycle on macOS 14+ has cases where a MenuBarExtra scene
+    /// being active makes the app refuse Cmd+Q / Dock → Quit (since
+    /// "a scene is still alive"). Returning .terminateNow tells AppKit
+    /// we want to die when asked, regardless of remaining scenes.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        return .terminateNow
+    }
+
     /// Called when the user clicks the dock icon. Re-show whichever
     /// window we have, or open a new one if all were closed.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
