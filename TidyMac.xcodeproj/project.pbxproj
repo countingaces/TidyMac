@@ -50,6 +50,9 @@
 		100000000000000000000131 /* OptimizationScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000125 /* OptimizationScanner.swift */; };
 		100000000000000000000132 /* OptimizationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000126 /* OptimizationViewModel.swift */; };
 		100000000000000000000133 /* OptimizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000127 /* OptimizationView.swift */; };
+		100000000000000000000140 /* MaintenanceTasks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000134 /* MaintenanceTasks.swift */; };
+		100000000000000000000141 /* MaintenanceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000135 /* MaintenanceViewModel.swift */; };
+		100000000000000000000142 /* MaintenanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000136 /* MaintenanceView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -98,6 +101,9 @@
 		100000000000000000000125 /* OptimizationScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptimizationScanner.swift; sourceTree = "<group>"; };
 		100000000000000000000126 /* OptimizationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptimizationViewModel.swift; sourceTree = "<group>"; };
 		100000000000000000000127 /* OptimizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptimizationView.swift; sourceTree = "<group>"; };
+		100000000000000000000134 /* MaintenanceTasks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaintenanceTasks.swift; sourceTree = "<group>"; };
+		100000000000000000000135 /* MaintenanceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaintenanceViewModel.swift; sourceTree = "<group>"; };
+		100000000000000000000136 /* MaintenanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaintenanceView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -158,6 +164,7 @@
 				100000000000000000000065 /* SystemJunkViewModel.swift */,
 				100000000000000000000089 /* UninstallerViewModel.swift */,
 				100000000000000000000126 /* OptimizationViewModel.swift */,
+				100000000000000000000135 /* MaintenanceViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -172,6 +179,7 @@
 				100000000000000000000067 /* SystemJunk */,
 				100000000000000000000122 /* Uninstaller */,
 				100000000000000000000128 /* Optimization */,
+				100000000000000000000137 /* Maintenance */,
 				100000000000000000000069 /* Shared */,
 			);
 			path = Views;
@@ -183,6 +191,14 @@
 				100000000000000000000127 /* OptimizationView.swift */,
 			);
 			path = Optimization;
+			sourceTree = "<group>";
+		};
+		100000000000000000000137 /* Maintenance */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000136 /* MaintenanceView.swift */,
+			);
+			path = Maintenance;
 			sourceTree = "<group>";
 		};
 		100000000000000000000122 /* Uninstaller */ = {
@@ -253,6 +269,7 @@
 				100000000000000000000088 /* RemnantScanner.swift */,
 				100000000000000000000123 /* OrphanDetector.swift */,
 				100000000000000000000125 /* OptimizationScanner.swift */,
+				100000000000000000000134 /* MaintenanceTasks.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -377,6 +394,9 @@
 				100000000000000000000131 /* OptimizationScanner.swift in Sources */,
 				100000000000000000000132 /* OptimizationViewModel.swift in Sources */,
 				100000000000000000000133 /* OptimizationView.swift in Sources */,
+				100000000000000000000140 /* MaintenanceTasks.swift in Sources */,
+				100000000000000000000141 /* MaintenanceViewModel.swift in Sources */,
+				100000000000000000000142 /* MaintenanceView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
