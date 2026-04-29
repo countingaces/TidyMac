@@ -27,8 +27,6 @@ struct SystemJunkScanner: Sendable {
             ("Scanning module caches…",      { try await scanModuleCaches() }),
             ("Scanning old updates…",        { try await scanOldUpdates() }),
             ("Looking for broken preferences…", { try await scanBrokenPreferences(context: context) }),
-            ("Scanning language files…",     { try await scanLanguageFiles(context: context) }),
-            ("Scanning universal binaries…", { try await scanUniversalBinaries() }),
             ("Scanning mail attachments…",   { try await scanMailAttachments() }),
             ("Scanning iOS backups…",        { try await scanIOSBackups() }),
             ("Reviewing Trash…",             { try await scanTrashBins() })
@@ -480,169 +478,12 @@ struct SystemJunkScanner: Sendable {
         )
     }
 
-    // MARK: - 8. Language Files
-
-    private func scanLanguageFiles(context: Context) async throws -> ScanCategory<JunkItem> {
-        try Task.checkCancellation()
-        let appsURL = URL(fileURLWithPath: "/Applications")
-        var items: [JunkItem] = []
-
-        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: appsURL.path) else {
-            return makeCategory(
-                id: "languages",
-                title: "Language Files",
-                description: "Localizations for languages you don't use.",
-                icon: "globe",
-                items: []
-            )
-        }
-
-        for entry in entries where entry.hasSuffix(".app") {
-            try Task.checkCancellation()
-            let appURL = appsURL.appendingPathComponent(entry, isDirectory: true)
-            let resourcesURL = appURL.appendingPathComponent("Contents/Resources", isDirectory: true)
-
-            guard let resourceEntries = try? FileManager.default.contentsOfDirectory(atPath: resourcesURL.path) else { continue }
-
-            var totalSize: Int64 = 0
-            for resourceEntry in resourceEntries where resourceEntry.hasSuffix(".lproj") {
-                let langCode = String(resourceEntry.dropLast(".lproj".count))
-                if context.preferredLanguageCodes.contains(langCode) { continue }
-                let lprojURL = resourcesURL.appendingPathComponent(resourceEntry, isDirectory: true)
-                totalSize += bulkDirectorySize(at: lprojURL)
-            }
-
-            // Only flag apps with meaningful removable lprojs (>1 MB)
-            if totalSize > 1_048_576 {
-                let displayName = entry.hasSuffix(".app")
-                    ? String(entry.dropLast(".app".count))
-                    : entry
-                items.append(JunkItem(
-                    name: displayName,
-                    path: resourcesURL,
-                    size: totalSize,
-                    safetyLevel: .safe,
-                    categoryId: "languages",
-                    lastModified: nil
-                ))
-            }
-        }
-
-        return makeCategory(
-            id: "languages",
-            title: "Language Files",
-            description: "Localization files inside apps for languages you don't use.",
-            icon: "globe",
-            items: items.sorted { $0.size > $1.size }
-        )
-    }
-
-    // MARK: - 9. Universal Binaries
-
-    private func scanUniversalBinaries() async throws -> ScanCategory<JunkItem> {
-        try Task.checkCancellation()
-
-        #if arch(arm64)
-        let unwantedArch = "x86_64"
-        #else
-        let unwantedArch = "arm64"
-        #endif
-
-        let lipoPath = "/usr/bin/lipo"
-        guard FileManager.default.isExecutableFile(atPath: lipoPath) else {
-            return makeCategory(
-                id: "universal",
-                title: "Universal Binaries",
-                description: "Unused architecture slices in apps. Removing them may invalidate code signatures.",
-                icon: "cpu",
-                items: []
-            )
-        }
-
-        let home = URL(fileURLWithPath: NSHomeDirectory())
-        // Skip /System/Applications: those are sealed/read-only and can't be
-        // stripped anyway.
-        let appLocations: [URL] = [
-            URL(fileURLWithPath: "/Applications"),
-            URL(fileURLWithPath: "/Applications/Utilities"),
-            home.appendingPathComponent("Applications", isDirectory: true)
-        ]
-        var items: [JunkItem] = []
-
-        for appsURL in appLocations {
-            try Task.checkCancellation()
-            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: appsURL.path) else { continue }
-
-            for entry in entries where entry.hasSuffix(".app") {
-                try Task.checkCancellation()
-                let appURL = appsURL.appendingPathComponent(entry, isDirectory: true)
-                let infoPlistURL = appURL.appendingPathComponent("Contents/Info.plist")
-
-                guard let info = NSDictionary(contentsOf: infoPlistURL) as? [String: Any],
-                      let exeName = info["CFBundleExecutable"] as? String
-                else { continue }
-
-                let exeURL = appURL.appendingPathComponent("Contents/MacOS").appendingPathComponent(exeName)
-                guard FileManager.default.fileExists(atPath: exeURL.path) else { continue }
-
-                let unwantedSize = sliceSize(of: exeURL.path, for: unwantedArch, lipoPath: lipoPath)
-                guard unwantedSize > 1_048_576 else { continue }
-
-                let displayName = entry.hasSuffix(".app")
-                    ? String(entry.dropLast(".app".count))
-                    : entry
-                items.append(JunkItem(
-                    name: "\(displayName) (\(unwantedArch) slice)",
-                    path: exeURL,
-                    size: unwantedSize,
-                    safetyLevel: .cautious,
-                    categoryId: "universal"
-                ))
-            }
-        }
-
-        return makeCategory(
-            id: "universal",
-            title: "Universal Binaries",
-            description: "Unused architecture slices in apps. Stripping them can invalidate code signatures.",
-            icon: "cpu",
-            items: items.sorted { $0.size > $1.size }
-        )
-    }
-
-    private func sliceSize(of binaryPath: String, for arch: String, lipoPath: String) -> Int64 {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: lipoPath)
-        process.arguments = ["-detailed_info", binaryPath]
-        let outPipe = Pipe()
-        process.standardOutput = outPipe
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            return 0
-        }
-
-        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-        guard let output = String(data: data, encoding: .utf8) else { return 0 }
-
-        // Parse: "architecture <arch>" begins a section, "size <bytes>" gives slice size.
-        var inSection = false
-        for rawLine in output.components(separatedBy: "\n") {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("architecture ") {
-                inSection = line.split(separator: " ").last.map(String.init) == arch
-            } else if inSection, line.hasPrefix("size ") {
-                let parts = line.split(separator: " ")
-                if parts.count >= 2, let bytes = Int64(parts[1]) {
-                    return bytes
-                }
-            }
-        }
-        return 0
-    }
+    // Language Files and Universal Binaries categories were removed: both
+    // target /Applications/<App>.app/Contents/{Resources,MacOS}, which on
+    // modern macOS is code-signed and Gatekeeper-validated. Modifying or
+    // removing those contents permanently breaks the app on next launch.
+    // CleanMyMac papers over this by re-signing with their Developer ID; we
+    // don't have that infrastructure, so the categories are unsafe to ship.
 
     // MARK: - 10. Old iOS Backups
 
@@ -856,12 +697,15 @@ struct SystemJunkScanner: Sendable {
         items: [JunkItem],
         isSelected: Bool = true
     ) -> ScanCategory<JunkItem> {
-        ScanCategory(
+        // Drop anything we couldn't actually remove. Keeps the UI honest:
+        // every item shown is something a user click can act on.
+        let cleanable = items.filter { canDelete(at: $0.path) }
+        return ScanCategory(
             id: id,
             title: title,
             description: description,
             icon: icon,
-            items: items,
+            items: cleanable,
             isSelected: isSelected
         )
     }
@@ -894,6 +738,36 @@ struct SystemJunkScanner: Sendable {
             // Permission denied or non-supporting filesystem — silently skip.
         }
         return total
+    }
+
+    /// True when the path is something CleaningService can actually remove
+    /// without admin privileges. Covers three special cases that bypass the
+    /// ownership check, then falls through to "owned by the current user."
+    /// Items that fail this check are dropped at scan time so the user never
+    /// sees something we can't act on.
+    private func canDelete(at url: URL) -> Bool {
+        let path = url.path
+        // Simulator runtimes go through `xcrun simctl runtime delete`.
+        if path.hasPrefix("/Library/Developer/CoreSimulator/Volumes/") {
+            return true
+        }
+        // Simulator devices also go through simctl.
+        let homeDevices = NSHomeDirectory() + "/Library/Developer/CoreSimulator/Devices/"
+        if path.hasPrefix(homeDevices) {
+            return true
+        }
+        // Items in the user's Trash can be permanently removed.
+        let homeTrash = NSHomeDirectory() + "/.Trash"
+        if path == homeTrash || path.hasPrefix(homeTrash + "/") {
+            return true
+        }
+        // Otherwise: must be owned by the current user.
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let ownerID = attrs[.ownerAccountID] as? UInt
+        else {
+            return false
+        }
+        return ownerID == UInt(getuid())
     }
 
     private func lastModified(at url: URL) -> Date? {
