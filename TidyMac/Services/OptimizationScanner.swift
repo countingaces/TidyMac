@@ -283,8 +283,13 @@ struct OptimizationScanner: Sendable {
         } catch {
             return nil
         }
-        process.waitUntilExit()
+        // Drain the pipe BEFORE waiting for exit. ps on a busy Mac produces
+        // more than the pipe's ~64 KB buffer, so the child blocks writing
+        // while we wait for it to terminate — classic deadlock. readData­
+        // ToEndOfFile() returns when the child closes its stdout (on exit),
+        // so the subsequent waitUntilExit returns immediately.
         let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
         return String(data: data, encoding: .utf8)
     }
 }
