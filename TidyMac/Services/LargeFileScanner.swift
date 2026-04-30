@@ -16,7 +16,7 @@ struct LargeFileScanner: Sendable {
     /// user's attention or our render budget.
     static let minimumSize: Int64 = 1_048_576 // 1 MB
 
-    struct Progress: Sendable {
+    struct Progress: Sendable, Equatable {
         let filesFound: Int
         let totalSize: Int64
         let currentDirectory: String

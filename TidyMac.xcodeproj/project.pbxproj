@@ -61,6 +61,8 @@
 		100000000000000000000171 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000163 /* MenuBarView.swift */; };
 		100000000000000000000180 /* LargeFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000172 /* LargeFile.swift */; };
 		100000000000000000000181 /* LargeFileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000173 /* LargeFileScanner.swift */; };
+		100000000000000000000182 /* LargeFilesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000174 /* LargeFilesViewModel.swift */; };
+		100000000000000000000183 /* LargeFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000175 /* LargeFilesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -120,6 +122,8 @@
 		100000000000000000000163 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		100000000000000000000172 /* LargeFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFile.swift; sourceTree = "<group>"; };
 		100000000000000000000173 /* LargeFileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFileScanner.swift; sourceTree = "<group>"; };
+		100000000000000000000174 /* LargeFilesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesViewModel.swift; sourceTree = "<group>"; };
+		100000000000000000000175 /* LargeFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -183,6 +187,7 @@
 				100000000000000000000126 /* OptimizationViewModel.swift */,
 				100000000000000000000135 /* MaintenanceViewModel.swift */,
 				100000000000000000000146 /* SmartScanViewModel.swift */,
+				100000000000000000000174 /* LargeFilesViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -200,6 +205,7 @@
 				100000000000000000000137 /* Maintenance */,
 				100000000000000000000148 /* SmartScan */,
 				100000000000000000000164 /* MenuBar */,
+				100000000000000000000176 /* LargeFiles */,
 				100000000000000000000069 /* Shared */,
 			);
 			path = Views;
@@ -211,6 +217,14 @@
 				100000000000000000000163 /* MenuBarView.swift */,
 			);
 			path = MenuBar;
+			sourceTree = "<group>";
+		};
+		100000000000000000000176 /* LargeFiles */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000175 /* LargeFilesView.swift */,
+			);
+			path = LargeFiles;
 			sourceTree = "<group>";
 		};
 		100000000000000000000148 /* SmartScan */ = {
@@ -445,6 +459,8 @@
 				100000000000000000000171 /* MenuBarView.swift in Sources */,
 				100000000000000000000180 /* LargeFile.swift in Sources */,
 				100000000000000000000181 /* LargeFileScanner.swift in Sources */,
+				100000000000000000000182 /* LargeFilesViewModel.swift in Sources */,
+				100000000000000000000183 /* LargeFilesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
