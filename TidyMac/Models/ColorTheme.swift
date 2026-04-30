@@ -8,6 +8,7 @@ enum ColorTheme {
     case maintenance
     case applications
     case storage
+    case largeFiles
 
     var primary: Color {
         switch self {
@@ -18,6 +19,7 @@ enum ColorTheme {
         case .maintenance: return Color(red: 0.86, green: 0.42, blue: 0.66)
         case .applications: return Color(red: 0.23, green: 0.51, blue: 0.96)
         case .storage: return Color(red: 0.46, green: 0.42, blue: 0.92)
+        case .largeFiles: return Color(red: 0.95, green: 0.50, blue: 0.40)
         }
     }
 
@@ -30,6 +32,7 @@ enum ColorTheme {
         case .maintenance: return Color(red: 0.96, green: 0.62, blue: 0.82)
         case .applications: return Color(red: 0.46, green: 0.66, blue: 0.99)
         case .storage: return Color(red: 0.62, green: 0.58, blue: 0.98)
+        case .largeFiles: return Color(red: 0.99, green: 0.68, blue: 0.55)
         }
     }
 

@@ -348,6 +348,15 @@ private struct ResultsView: View {
                                 navigateTo: .uninstaller
                             )
                         }
+                        if let downloads = results.oldDownloads, downloads.shouldSurface {
+                            ResultCard(
+                                title: "Old Downloads",
+                                icon: "arrow.down.circle.fill",
+                                primary: ByteCountFormatter.string(fromByteCount: downloads.totalSize, countStyle: .file),
+                                detail: "in ~/Downloads, untouched for 30+ days",
+                                navigateTo: .largeOldFiles
+                            )
+                        }
                     }
                     .padding(.horizontal, 24)
 

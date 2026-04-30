@@ -65,7 +65,8 @@ final class SmartScanOrchestrator: ObservableObject {
         Module(id: "systemJunk",   name: "System Junk",       icon: "trash.circle.fill",                    weight: 0.50),
         Module(id: "orphans",      name: "Orphaned App Data", icon: "questionmark.folder.fill",             weight: 0.25),
         Module(id: "optimization", name: "Startup Health",    icon: "gauge.with.dots.needle.67percent",     weight: 0.15),
-        Module(id: "maintenance", name: "Maintenance",        icon: "wrench.and.screwdriver.fill",          weight: 0.10)
+        Module(id: "oldDownloads", name: "Old Downloads",     icon: "arrow.down.circle.fill",               weight: 0.05),
+        Module(id: "maintenance",  name: "Maintenance",       icon: "wrench.and.screwdriver.fill",          weight: 0.05)
     ]
 
     private var currentTask: Task<Void, Never>?
@@ -114,6 +115,7 @@ final class SmartScanOrchestrator: ObservableObject {
         var optimization: OptimizationSummary?
         var maintenance: MaintenanceSummary?
         var orphans: OrphanSummary?
+        var oldDownloads: OldDownloadsSummary?
 
         var cumulativeWeight = 0.0
 
@@ -132,6 +134,8 @@ final class SmartScanOrchestrator: ObservableObject {
                     orphans = try await scanOrphans(module: module, baseProgress: cumulativeWeight)
                 case "optimization":
                     optimization = try await scanOptimization(module: module, baseProgress: cumulativeWeight)
+                case "oldDownloads":
+                    oldDownloads = try await scanOldDownloads(module: module)
                 case "maintenance":
                     maintenance = try await scanMaintenance(module: module, lastRunDates: maintenanceLastRunDates)
                 default:
@@ -170,6 +174,7 @@ final class SmartScanOrchestrator: ObservableObject {
             optimization: optimization,
             maintenance: maintenance,
             orphanedFiles: orphans,
+            oldDownloads: oldDownloads,
             healthScore: healthScore,
             scanDuration: Date().timeIntervalSince(started),
             timestamp: Date()
@@ -284,6 +289,47 @@ final class SmartScanOrchestrator: ObservableObject {
         return summary
     }
 
+    /// Walks ~/Downloads/ once (one directory, no recursion) and totals
+    /// up files older than 30 days. Cheap enough to bundle into Smart
+    /// Scan; gives us material for the "old downloads" recommendation
+    /// card without running a full Large & Old Files scan.
+    private func scanOldDownloads(module: Module) async throws -> OldDownloadsSummary {
+        updateModuleState(module.id, .running(detail: "Checking ~/Downloads…"))
+
+        let downloads = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Downloads", isDirectory: true)
+        let cutoff = Date().addingTimeInterval(-30 * 24 * 60 * 60)
+        let resourceKeys: [URLResourceKey] = [
+            .totalFileAllocatedSizeKey, .fileSizeKey,
+            .contentModificationDateKey, .contentAccessDateKey,
+            .isRegularFileKey, .isSymbolicLinkKey
+        ]
+
+        var count = 0
+        var totalSize: Int64 = 0
+        if let entries = try? FileManager.default.contentsOfDirectory(
+            at: downloads,
+            includingPropertiesForKeys: resourceKeys,
+            options: [.skipsHiddenFiles]
+        ) {
+            for url in entries {
+                let values = try? url.resourceValues(forKeys: Set(resourceKeys))
+                if values?.isSymbolicLink == true { continue }
+                if values?.isRegularFile != true { continue }
+                let lastTouched = values?.contentAccessDate ?? values?.contentModificationDate
+                guard let lastTouched, lastTouched < cutoff else { continue }
+                let size = Int64(values?.totalFileAllocatedSize ?? values?.fileSize ?? 0)
+                if size <= 0 { continue }
+                count += 1
+                totalSize += size
+            }
+        }
+
+        let summary = OldDownloadsSummary(count: count, totalSize: totalSize)
+        updateModuleState(module.id, .complete(summary: summary.headline))
+        return summary
+    }
+
     private func scanMaintenance(module: Module, lastRunDates: [String: Date]) async throws -> MaintenanceSummary {
         updateModuleState(module.id, .running(detail: "Checking last-run dates…"))
 
@@ -330,9 +376,33 @@ struct SmartScanResults: Codable, Equatable {
     let optimization: OptimizationSummary?
     let maintenance: MaintenanceSummary?
     let orphanedFiles: OrphanSummary?
+    let oldDownloads: OldDownloadsSummary?
     let healthScore: HealthScore
     let scanDuration: TimeInterval
     let timestamp: Date
+}
+
+/// Lightweight check that runs as part of Smart Scan: how much of
+/// ~/Downloads/ is older than 30 days. We deliberately don't run a
+/// full Large & Old Files scan from here — it's slow and personal.
+/// The Downloads folder is the one place "old" files are almost
+/// always safe to recommend cleaning, and it's a single-directory
+/// read.
+struct OldDownloadsSummary: Codable, Equatable {
+    let count: Int
+    let totalSize: Int64
+
+    /// Threshold below which we don't bother surfacing this. 500 MB
+    /// of forgotten downloads is the point where most users would
+    /// say "yeah, I should look at that."
+    static let surfaceThreshold: Int64 = 500 * 1_048_576
+
+    var shouldSurface: Bool { totalSize >= Self.surfaceThreshold }
+
+    var headline: String {
+        if count == 0 { return "No old downloads" }
+        return "\(ByteCountFormatter.string(fromByteCount: totalSize, countStyle: .file)) across \(count) file\(count == 1 ? "" : "s")"
+    }
 }
 
 struct SystemJunkSummary: Codable, Equatable {

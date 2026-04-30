@@ -57,7 +57,8 @@ enum NavigationItem: String, CaseIterable, Identifiable, Hashable {
     var theme: ColorTheme {
         switch self {
         case .smartScan: return .smartScan
-        case .systemJunk, .largeOldFiles: return .cleanup
+        case .systemJunk: return .cleanup
+        case .largeOldFiles: return .largeFiles
         case .optimization: return .optimization
         case .maintenance: return .maintenance
         case .uninstaller: return .applications

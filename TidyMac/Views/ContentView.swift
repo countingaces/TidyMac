@@ -35,6 +35,8 @@ struct ContentView: View {
             OptimizationView()
         case .maintenance:
             MaintenanceView()
+        case .largeOldFiles:
+            LargeFilesView()
         default:
             PlaceholderView(item: appState.selection)
         }
