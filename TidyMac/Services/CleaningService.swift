@@ -39,6 +39,7 @@ final class CleaningService {
         case simctlFailed(String)
         case systemProtected(String)
         case finderTimeout(String)
+        case requiresHelper
 
         var errorDescription: String? {
             switch self {
@@ -47,6 +48,7 @@ final class CleaningService {
             case .simctlFailed(let detail): return detail
             case .systemProtected(let name): return "\(name) is on macOS's sealed system volume and is protected by System Integrity Protection. It can't be removed."
             case .finderTimeout(let name): return "Finder didn't respond when asked to delete \(name) within 60 seconds. The admin authorization prompt may have been hidden behind another window."
+            case .requiresHelper: return "This item requires the TidyMac Helper Tool to be installed."
             }
         }
     }
@@ -185,6 +187,24 @@ final class CleaningService {
         // succeed.
         if Self.isSystemProtected(url) {
             throw CleaningError.systemProtected(url.lastPathComponent)
+        }
+
+        // Helper-eligible? If the item lives in a location that needs
+        // root and the helper is installed, route through it. The
+        // helper validates the path again (allowlist + symlink-resolve)
+        // so we don't have to trust this check alone.
+        if HelperPaths.validate(url.path).allowed {
+            let status = await PrivilegedHelperManager.shared.status
+            switch status {
+            case .installed:
+                try await PrivilegedHelperManager.shared.moveRootOwnedItemToTrash(at: url)
+                return
+            case .notInstalled, .needsUpdate, .error, .unknown:
+                // Surface a typed error so the UI can offer to install
+                // the helper instead of dumping a generic "couldn't
+                // delete" message.
+                throw CleaningError.requiresHelper
+            }
         }
 
         do {

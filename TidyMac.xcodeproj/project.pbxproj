@@ -71,6 +71,7 @@
 		100000000000000000000215 /* HelperConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000204 /* HelperConstants.swift */; };
 		100000000000000000000216 /* com.tidymac.TidyMacHelper in Embed Helper Binary */ = {isa = PBXBuildFile; fileRef = 100000000000000000000207 /* com.tidymac.TidyMacHelper */; };
 		100000000000000000000217 /* com.tidymac.TidyMacHelper.plist in Embed Helper Plist */ = {isa = PBXBuildFile; fileRef = 100000000000000000000206 /* com.tidymac.TidyMacHelper.plist */; };
+		100000000000000000000240 /* PrivilegedHelperManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000208 /* PrivilegedHelperManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -139,6 +140,7 @@
 		100000000000000000000205 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		100000000000000000000206 /* com.tidymac.TidyMacHelper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.tidymac.TidyMacHelper.plist; sourceTree = "<group>"; };
 		100000000000000000000207 /* com.tidymac.TidyMacHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.tidymac.TidyMacHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		100000000000000000000208 /* PrivilegedHelperManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedHelperManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -386,6 +388,7 @@
 				100000000000000000000145 /* HealthScoreCalculator.swift */,
 				100000000000000000000162 /* SystemMonitor.swift */,
 				100000000000000000000173 /* LargeFileScanner.swift */,
+				100000000000000000000208 /* PrivilegedHelperManager.swift */,
 				100000000000000000000062 /* Protocols */,
 			);
 			path = Services;
@@ -566,6 +569,7 @@
 				100000000000000000000183 /* LargeFilesView.swift in Sources */,
 				100000000000000000000214 /* HelperToolProtocol.swift in Sources */,
 				100000000000000000000215 /* HelperConstants.swift in Sources */,
+				100000000000000000000240 /* PrivilegedHelperManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

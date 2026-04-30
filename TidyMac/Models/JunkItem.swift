@@ -34,6 +34,14 @@ struct JunkItem: ScanResult {
         ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
 
+    /// Items in a system-owned location need the privileged helper
+    /// to delete. Computed (not stored) so we can derive it from the
+    /// shared HelperPaths constants — what the badge says is exactly
+    /// what the helper will accept.
+    var requiresAdmin: Bool {
+        HelperPaths.validate(path.path).allowed
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
