@@ -32,7 +32,13 @@ brew install --cask tidymac
 
 Download `TidyMac-0.1.0.zip`, unzip, and drag `TidyMac.app` to your Applications folder.
 
-This release is **not code-signed or notarized**. On first launch, right-click the app and choose **Open** to bypass Gatekeeper. macOS will then remember the choice for subsequent launches.
+This release is **not code-signed or notarized**. macOS will block the first launch with a "TidyMac Not Opened — Apple could not verify…" dialog. To get past it:
+
+- **macOS 15+:** Dismiss the dialog, open **System Settings → Privacy & Security**, scroll to the "TidyMac was blocked…" row, and click **Open Anyway**.
+- **macOS 14:** Right-click the app in `/Applications` and choose **Open** from the context menu.
+- **Power users:** `xattr -d com.apple.quarantine /Applications/TidyMac.app` skips the dialog entirely.
+
+macOS remembers the decision; subsequent launches don't prompt.
 
 ## Known Limitations
 

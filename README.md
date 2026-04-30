@@ -49,7 +49,17 @@ brew install --cask tidymac
 
 Download the latest `.zip` from [Releases](https://github.com/countingaces/TidyMac/releases), unzip, and drag TidyMac to your Applications folder.
 
-This release is not yet code-signed or notarized. On first launch, right-click the app and choose **Open** to bypass Gatekeeper's warning.
+This release is not yet code-signed or notarized, so the first launch will hit Gatekeeper:
+
+> **"TidyMac" Not Opened — Apple could not verify "TidyMac" is free of malware…**
+
+This is the standard warning macOS shows for any unsigned app. To get past it:
+
+- **macOS 15 (Sequoia) and later:** Click **Done** on the dialog, open **System Settings → Privacy & Security**, scroll to the "TidyMac was blocked…" row near the bottom, and click **Open Anyway**.
+- **macOS 14 (Sonoma):** Right-click TidyMac in `/Applications` and choose **Open** from the context menu.
+- **Power users (any macOS):** Strip the quarantine xattr in one command — `xattr -d com.apple.quarantine /Applications/TidyMac.app`.
+
+macOS remembers the decision; subsequent launches don't prompt. This warning will go away entirely once a v0.x release is signed and notarized with an Apple Developer ID.
 
 ### Build from Source
 
