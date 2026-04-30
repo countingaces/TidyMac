@@ -63,6 +63,14 @@
 		100000000000000000000181 /* LargeFileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000173 /* LargeFileScanner.swift */; };
 		100000000000000000000182 /* LargeFilesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000174 /* LargeFilesViewModel.swift */; };
 		100000000000000000000183 /* LargeFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000175 /* LargeFilesView.swift */; };
+		100000000000000000000210 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000201 /* main.swift */; };
+		100000000000000000000211 /* HelperTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000202 /* HelperTool.swift */; };
+		100000000000000000000212 /* HelperToolProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000203 /* HelperToolProtocol.swift */; };
+		100000000000000000000213 /* HelperConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000204 /* HelperConstants.swift */; };
+		100000000000000000000214 /* HelperToolProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000203 /* HelperToolProtocol.swift */; };
+		100000000000000000000215 /* HelperConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000204 /* HelperConstants.swift */; };
+		100000000000000000000216 /* com.tidymac.TidyMacHelper in Embed Helper Binary */ = {isa = PBXBuildFile; fileRef = 100000000000000000000207 /* com.tidymac.TidyMacHelper */; };
+		100000000000000000000217 /* com.tidymac.TidyMacHelper.plist in Embed Helper Plist */ = {isa = PBXBuildFile; fileRef = 100000000000000000000206 /* com.tidymac.TidyMacHelper.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -124,6 +132,13 @@
 		100000000000000000000173 /* LargeFileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFileScanner.swift; sourceTree = "<group>"; };
 		100000000000000000000174 /* LargeFilesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesViewModel.swift; sourceTree = "<group>"; };
 		100000000000000000000175 /* LargeFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesView.swift; sourceTree = "<group>"; };
+		100000000000000000000201 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		100000000000000000000202 /* HelperTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperTool.swift; sourceTree = "<group>"; };
+		100000000000000000000203 /* HelperToolProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperToolProtocol.swift; sourceTree = "<group>"; };
+		100000000000000000000204 /* HelperConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperConstants.swift; sourceTree = "<group>"; };
+		100000000000000000000205 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		100000000000000000000206 /* com.tidymac.TidyMacHelper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.tidymac.TidyMacHelper.plist; sourceTree = "<group>"; };
+		100000000000000000000207 /* com.tidymac.TidyMacHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.tidymac.TidyMacHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,15 +149,61 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		100000000000000000000221 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		100000000000000000000222 /* Embed Helper Binary */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				100000000000000000000216 /* com.tidymac.TidyMacHelper in Embed Helper Binary */,
+			);
+			name = "Embed Helper Binary";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000223 /* Embed Helper LaunchDaemon Plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "Contents/Library/LaunchDaemons";
+			dstSubfolderSpec = 1;
+			files = (
+				100000000000000000000217 /* com.tidymac.TidyMacHelper.plist in Embed Helper Plist */,
+			);
+			name = "Embed Helper LaunchDaemon Plist";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		100000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
 				100000000000000000000003 /* TidyMac */,
+				100000000000000000000200 /* TidyMacHelper */,
 				100000000000000000000008 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		100000000000000000000200 /* TidyMacHelper */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000201 /* main.swift */,
+				100000000000000000000202 /* HelperTool.swift */,
+				100000000000000000000203 /* HelperToolProtocol.swift */,
+				100000000000000000000204 /* HelperConstants.swift */,
+				100000000000000000000205 /* Info.plist */,
+				100000000000000000000206 /* com.tidymac.TidyMacHelper.plist */,
+			);
+			path = TidyMacHelper;
 			sourceTree = "<group>";
 		};
 		100000000000000000000003 /* TidyMac */ = {
@@ -303,6 +364,7 @@
 			isa = PBXGroup;
 			children = (
 				100000000000000000000019 /* TidyMac.app */,
+				100000000000000000000207 /* com.tidymac.TidyMacHelper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -347,17 +409,54 @@
 				100000000000000000000010 /* Sources */,
 				100000000000000000000012 /* Frameworks */,
 				100000000000000000000011 /* Resources */,
+				100000000000000000000222 /* Embed Helper Binary */,
+				100000000000000000000223 /* Embed Helper LaunchDaemon Plist */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				100000000000000000000234 /* PBXTargetDependency */,
 			);
 			name = TidyMac;
 			productName = TidyMac;
 			productReference = 100000000000000000000019 /* TidyMac.app */;
 			productType = "com.apple.product-type.application";
 		};
+		100000000000000000000230 /* TidyMacHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000233 /* Build configuration list for PBXNativeTarget "TidyMacHelper" */;
+			buildPhases = (
+				100000000000000000000220 /* Sources */,
+				100000000000000000000221 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TidyMacHelper;
+			productName = TidyMacHelper;
+			productReference = 100000000000000000000207 /* com.tidymac.TidyMacHelper */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXTargetDependency section */
+		100000000000000000000234 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000230 /* TidyMacHelper */;
+			targetProxy = 100000000000000000000235 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		100000000000000000000235 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 100000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000230;
+			remoteInfo = TidyMacHelper;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXProject section */
 		100000000000000000000001 /* Project object */ = {
@@ -368,6 +467,9 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					100000000000000000000009 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					100000000000000000000230 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -386,6 +488,7 @@
 			projectRoot = "";
 			targets = (
 				100000000000000000000009 /* TidyMac */,
+				100000000000000000000230 /* TidyMacHelper */,
 			);
 		};
 /* End PBXProject section */
@@ -461,6 +564,19 @@
 				100000000000000000000181 /* LargeFileScanner.swift in Sources */,
 				100000000000000000000182 /* LargeFilesViewModel.swift in Sources */,
 				100000000000000000000183 /* LargeFilesView.swift in Sources */,
+				100000000000000000000214 /* HelperToolProtocol.swift in Sources */,
+				100000000000000000000215 /* HelperConstants.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000220 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000210 /* main.swift in Sources */,
+				100000000000000000000211 /* HelperTool.swift in Sources */,
+				100000000000000000000212 /* HelperToolProtocol.swift in Sources */,
+				100000000000000000000213 /* HelperConstants.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -645,6 +761,56 @@
 			};
 			name = Release;
 		};
+		100000000000000000000231 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TidyMacHelper/Info.plist;
+				INSTALL_PATH = /Library/PrivilegedHelperTools;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					"__TEXT",
+					"__launchd_plist",
+					"$(SRCROOT)/TidyMacHelper/com.tidymac.TidyMacHelper.plist",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tidymac.TidyMacHelper;
+				PRODUCT_NAME = "com.tidymac.TidyMacHelper";
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		100000000000000000000232 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TidyMacHelper/Info.plist;
+				INSTALL_PATH = /Library/PrivilegedHelperTools;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					"__TEXT",
+					"__launchd_plist",
+					"$(SRCROOT)/TidyMacHelper/com.tidymac.TidyMacHelper.plist",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tidymac.TidyMacHelper;
+				PRODUCT_NAME = "com.tidymac.TidyMacHelper";
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -662,6 +828,15 @@
 			buildConfigurations = (
 				100000000000000000000017 /* Debug */,
 				100000000000000000000018 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		100000000000000000000233 /* Build configuration list for PBXNativeTarget "TidyMacHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000231 /* Debug */,
+				100000000000000000000232 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
