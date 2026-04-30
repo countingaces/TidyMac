@@ -1,0 +1,102 @@
+# GitHub Actions workflow for TidyMac.
+#
+# - Push / PR: build + test the project so we know it compiles before
+#   merging. Doesn't sign or notarize — works without secrets.
+# - Tag (v*): full sign + notarize + GitHub Release pipeline. Requires
+#   the secrets listed under `release:`. The workflow no-ops gracefully
+#   if they aren't set, so this file can sit in the repo from day one
+#   without breaking pre-Developer-ID CI runs.
+#
+# Required secrets for the release job (set under repo Settings →
+# Secrets and variables → Actions):
+#
+#   APPLE_DEVELOPER_ID          — full identity name, e.g.
+#                                 "Developer ID Application: NAME (TEAMID)"
+#   APPLE_TEAM_ID               — Team ID (the OU value)
+#   APPLE_ID                    — Apple ID email used for notarization
+#   APPLE_NOTARY_PASSWORD       — app-specific password (NOT your
+#                                 Apple ID password)
+#   APPLE_CERTIFICATE_P12       — base64-encoded .p12 export of the
+#                                 Developer ID Application certificate
+#   APPLE_CERTIFICATE_PASSWORD  — passphrase used when exporting .p12
+
+name: build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write   # release job needs to attach assets
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build (Debug)
+        run: |
+          xcodebuild build \
+            -project TidyMac.xcodeproj \
+            -scheme TidyMac \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+  release:
+    name: Sign & Notarize
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # Decode the Developer ID certificate from the secret into a
+      # temporary keychain that lasts for the duration of this job.
+      - name: Import certificate
+        env:
+          P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Build / sign / notarize
+        env:
+          TIDYMAC_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          TIDYMAC_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TIDYMAC_APPLE_ID: ${{ secrets.APPLE_ID }}
+          TIDYMAC_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+        run: |
+          # Inject the real Team ID into ExportOptions.plist before
+          # building so xcodebuild picks the right signing identity.
+          /usr/libexec/PlistBuddy -c "Set :teamID $TIDYMAC_TEAM_ID" ExportOptions.plist
+          ./Scripts/build-release.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/TidyMac.dmg
+          generate_release_notes: true
+          fail_on_unmatched_files: true

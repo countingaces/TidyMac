@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Export options for `xcodebuild -exportArchive` when releasing
+  TidyMac outside the App Store. method=developer-id is the
+  Developer ID distribution path; signingStyle=automatic lets Xcode
+  choose the right Developer ID certificate from the keychain
+  matching teamID. Replace PLACEHOLDER_TEAM_ID with your actual
+  Apple Developer Team ID before running build-release.sh.
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>developer-id</string>
+    <key>teamID</key>
+    <string>PLACEHOLDER_TEAM_ID</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>destination</key>
+    <string>export</string>
+</dict>
+</plist>
