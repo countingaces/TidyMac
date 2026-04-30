@@ -5,6 +5,8 @@ struct SystemJunkView: View {
     @StateObject private var viewModel = SystemJunkViewModel()
     @EnvironmentObject private var appState: AppState
     @State private var showCleanConfirmation = false
+    @State private var helperRequiredItems: [HelperRequiredSheet.DeferredItem] = []
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Group {
@@ -21,6 +23,7 @@ struct SystemJunkView: View {
                     theme: viewModel.moduleInfo.colorTheme,
                     onStartOver: { viewModel.dismissCompletion() }
                 )
+                .onAppear { detectHelperRequired(in: result) }
             case .idle, .awaitingQuitDecision:
                 ModuleView(
                     module: viewModel,
@@ -68,6 +71,20 @@ struct SystemJunkView: View {
         } message: {
             Text(confirmationMessage)
         }
+        .sheet(isPresented: Binding(
+            get: { !helperRequiredItems.isEmpty },
+            set: { if !$0 { helperRequiredItems = [] } }
+        )) {
+            HelperRequiredSheet(
+                items: helperRequiredItems,
+                onInstall: {
+                    helperRequiredItems = []
+                    openSettings()
+                },
+                onSkip: { helperRequiredItems = [] },
+                onCancel: { helperRequiredItems = [] }
+            )
+        }
         .sheet(isPresented: quitSheetBinding) {
             QuitAppsDialog(
                 apps: viewModel.runningAppsToQuit,
@@ -86,6 +103,22 @@ struct SystemJunkView: View {
         if case .complete = state {
             appState.sidebarBadges[.systemJunk] = humanReadableSize(viewModel.totalCleanableSize)
             appState.lastScanDates[.systemJunk] = Date()
+        }
+    }
+
+    /// Sift through the cleaning result for items that failed because
+    /// they need the privileged helper. If any are present, populate
+    /// the deferred-items state which triggers the HelperRequiredSheet.
+    private func detectHelperRequired(in result: CleaningService.CleaningResult) {
+        let helperFails: [HelperRequiredSheet.DeferredItem] = result.failures.compactMap { url, error in
+            guard case CleaningService.CleaningError.requiresHelper = error else { return nil }
+            // Re-derive the size from the matching log entry so the
+            // sheet shows accurate per-item numbers.
+            let size = result.log.first(where: { $0.path == url })?.size ?? 0
+            return HelperRequiredSheet.DeferredItem(path: url, size: size)
+        }
+        if !helperFails.isEmpty {
+            helperRequiredItems = helperFails
         }
     }
 

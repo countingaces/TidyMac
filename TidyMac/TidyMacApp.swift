@@ -55,6 +55,19 @@ struct TidyMacApp: App {
                 .environmentObject(appState)
         }
         .menuBarExtraStyle(.window)
+
+        // Cmd+, opens Settings. The Helper Tool tab is the only one
+        // for now; future panels (Launch at login, scan exclusions,
+        // log retention) will land here as additional Tabs.
+        Settings {
+            TabView {
+                HelperSettingsView()
+                    .tabItem {
+                        Label("Helper Tool", systemImage: "lock.shield")
+                    }
+            }
+            .frame(minWidth: 480, idealWidth: 560, minHeight: 480)
+        }
     }
 }
 
